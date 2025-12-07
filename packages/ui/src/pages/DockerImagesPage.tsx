@@ -1,59 +1,43 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Search, Plus, Package, HardDrive, Trash2, Download } from 'lucide-react'
-
-interface DockerImage {
-  id: string
-  name: string
-  tag: string
-  platform?: string
-  digest?: string
-  size?: string
-  category: string
-  selected: boolean
-  hasOffline?: boolean
-}
+import { ArrowLeft, Search, Plus, Package } from 'lucide-react'
+import { useBundleStore, DockerImage, ManifestItem } from '../store/bundleStore'
 
 export default function DockerImagesPage() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('all')
   const [showAddCustom, setShowAddCustom] = useState(false)
   const [customImageName, setCustomImageName] = useState('')
   const [customImageTag, setCustomImageTag] = useState('latest')
-  const [useOffline, setUseOffline] = useState(false)
 
-  const [images, setImages] = useState<DockerImage[]>([
-    { id: '1', name: 'nginx', tag: '1.25.4', size: '142 MB', category: 'web', selected: true, hasOffline: true },
-    { id: '2', name: 'postgres', tag: '15', size: '328 MB', category: 'database', selected: true, hasOffline: true },
-    { id: '3', name: 'redis', tag: '7.2', size: '116 MB', category: 'database', selected: false },
-    { id: '4', name: 'node', tag: '20-alpine', size: '175 MB', category: 'runtime', selected: false },
-    { id: '5', name: 'python', tag: '3.11-slim', size: '125 MB', category: 'runtime', selected: false },
-    { id: '6', name: 'mongodb', tag: '7.0', size: '685 MB', category: 'database', selected: false },
-    { id: '7', name: 'mysql', tag: '8.0', size: '542 MB', category: 'database', selected: false },
-    { id: '8', name: 'jenkins/jenkins', tag: 'lts', size: '468 MB', category: 'devops', selected: false },
-    { id: '9', name: 'sonarqube', tag: 'latest', size: '578 MB', category: 'devops', selected: false },
-    { id: '10', name: 'rabbitmq', tag: '3.12', size: '221 MB', category: 'messaging', selected: false },
-  ])
+  // Get from store
+  const { 
+    selectedDockerImages, 
+    setSelectedDockerImages,
+    scanSettings,
+    setScanProgress,
+    toggleDockerImage,
+    selectedVSCodeProfiles,
+    selectedDatabases,
+    setManifestItems,
+    setCurrentBundle,
+  } = useBundleStore()
 
-  const categories = [
-    { id: 'all', name: 'All Images' },
-    { id: 'web', name: 'Web Servers' },
-    { id: 'database', name: 'Databases' },
-    { id: 'runtime', name: 'Runtimes' },
-    { id: 'devops', name: 'DevOps' },
-    { id: 'messaging', name: 'Messaging' },
-  ]
-
-  const toggleImage = (id: string) => {
-    setImages(images.map(img => 
-      img.id === id ? { ...img, selected: !img.selected } : img
-    ))
-  }
-
-  const removeImage = (id: string) => {
-    setImages(images.filter(img => img.id !== id))
-  }
+  // Initialize images from store or use mock data
+  useEffect(() => {
+    if (selectedDockerImages.length === 0) {
+      // Initialize with mock data
+      setSelectedDockerImages([
+        { id: '1', name: 'nginx', tag: '1.25.4', size: '142 MB', selected: false },
+        { id: '2', name: 'postgres', tag: '15', size: '328 MB', selected: false },
+        { id: '3', name: 'redis', tag: '7.2', size: '116 MB', selected: false },
+        { id: '4', name: 'node', tag: '20-alpine', size: '175 MB', selected: false },
+        { id: '5', name: 'python', tag: '3.11-slim', size: '125 MB', selected: false },
+        { id: '6', name: 'mongodb', tag: '7.0', size: '685 MB', selected: false },
+        { id: '7', name: 'mysql', tag: '8.0', size: '542 MB', selected: false },
+      ])
+    }
+  }, [selectedDockerImages.length, setSelectedDockerImages])
 
   const addCustomImage = () => {
     if (customImageName) {
@@ -61,35 +45,142 @@ export default function DockerImagesPage() {
         id: Date.now().toString(),
         name: customImageName,
         tag: customImageTag,
-        category: 'custom',
+        size: 'Unknown',
         selected: true,
       }
-      setImages([...images, newImage])
+      setSelectedDockerImages([...selectedDockerImages, newImage])
       setCustomImageName('')
       setCustomImageTag('latest')
       setShowAddCustom(false)
     }
   }
 
-  const filteredImages = images.filter(img => {
-    const matchesCategory = selectedCategory === 'all' || img.category === selectedCategory
+  const handleSaveAndContinue = () => {
+    // Mark docker config as complete
+    setScanProgress({ docker: true })
+    
+    // Navigate to next page based on scan settings
+    if (scanSettings.databases) {
+      navigate('/database-connections')
+    } else {
+      // Database page is last, so if not selected, we need to generate manifest here
+      generateManifest()
+      navigate('/bundle-preview')
+    }
+  }
+
+  const generateManifest = () => {
+    const manifestItems: ManifestItem[] = []
+    
+    // Add Docker images
+    selectedDockerImages
+      .filter(img => img.selected)
+      .forEach(img => {
+        manifestItems.push({
+          name: `${img.name}:${img.tag}`,
+          version: img.tag,
+          type: 'image',
+          source: 'docker',
+          included: true,
+        })
+      })
+    
+    // Add VS Code profiles/extensions
+    selectedVSCodeProfiles
+      .filter(profile => profile.selected)
+      .forEach(profile => {
+        profile.extensions.forEach(ext => {
+          manifestItems.push({
+            name: ext,
+            version: '1.0.0',
+            type: 'extension',
+            source: 'vscode',
+            included: true,
+          })
+        })
+      })
+    
+    // Add database connections (if any selected)
+    selectedDatabases
+      .filter(db => db.selected)
+      .forEach(db => {
+        manifestItems.push({
+          name: db.name,
+          version: '1.0.0',
+          type: 'secret',
+          source: db.type,
+          included: true,
+        })
+      })
+    
+    // Add devtools if selected
+    if (scanSettings.devtools) {
+      manifestItems.push(
+        { name: 'Git', version: '2.42.0', type: 'installer', source: 'https://git-scm.com', checksum: 'abc123', included: true },
+        { name: 'Node.js', version: '18.17.0', type: 'installer', source: 'https://nodejs.org', checksum: 'def456', included: true },
+      )
+    }
+    
+    // Add packages if selected
+    if (scanSettings.packages) {
+      manifestItems.push(
+        { name: 'npm:react', version: '18.2.0', type: 'package', source: 'npm', included: true },
+        { name: 'npm:typescript', version: '5.2.2', type: 'package', source: 'npm', included: true },
+      )
+    }
+    
+    // Set manifest items in store
+    setManifestItems(manifestItems)
+    
+    // Create bundle metadata
+    setCurrentBundle({
+      id: Date.now().toString(),
+      name: `Bundle_${new Date().toISOString().split('T')[0]}`,
+      createdAt: new Date().toISOString(),
+      description: 'Auto-generated development environment bundle',
+      encrypted: scanSettings.includeSecrets,
+    })
+  }
+
+  // Calculate progress
+  const totalSteps = [scanSettings.vscode, scanSettings.docker, scanSettings.databases].filter(Boolean).length
+  const currentStep = [scanSettings.vscode].filter(Boolean).length + 1
+
+  const filteredImages = selectedDockerImages.filter(img => {
     const matchesSearch = img.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          img.tag.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesCategory && matchesSearch
+    return matchesSearch
   })
 
-  const selectedCount = images.filter(img => img.selected).length
-  const totalSize = images
+  const selectedCount = selectedDockerImages.filter(img => img.selected).length
+  const totalSize = selectedDockerImages
     .filter(img => img.selected && img.size)
     .reduce((acc, img) => {
-      const size = parseFloat(img.size!)
-      const unit = img.size!.includes('GB') ? 1024 : 1
+      const sizeStr = img.size || '0 MB'
+      const size = Number.parseFloat(sizeStr)
+      const unit = sizeStr.includes('GB') ? 1024 : 1
       return acc + (size * unit)
     }, 0)
 
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
+        {/* Progress Bar */}
+        {totalSteps > 1 && (
+          <div className="card p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Configuration Progress</span>
+              <span className="text-sm text-primary-300">Step {currentStep} of {totalSteps}</span>
+            </div>
+            <div className="w-full bg-primary-800 rounded-full h-2">
+              <div 
+                className="bg-accent-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <button
@@ -113,20 +204,6 @@ export default function DockerImagesPage() {
               <p className="text-primary-300">
                 {selectedCount} images selected • ~{totalSize.toFixed(0)} MB total
               </p>
-            </div>
-            <div className="flex gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useOffline}
-                  onChange={(e) => setUseOffline(e.target.checked)}
-                  className="w-5 h-5 accent-accent-600"
-                />
-                <span className="flex items-center gap-2">
-                  <HardDrive className="w-4 h-4 text-accent-400" />
-                  Use offline exports
-                </span>
-              </label>
             </div>
           </div>
         </div>
@@ -152,23 +229,6 @@ export default function DockerImagesPage() {
               Add Custom
             </button>
           </div>
-
-          {/* Category Filter */}
-          <div className="flex gap-2 flex-wrap">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-lg transition-all ${
-                  selectedCategory === cat.id
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-white/10 text-primary-300 hover:bg-white/20'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Add Custom Image Modal */}
@@ -177,8 +237,9 @@ export default function DockerImagesPage() {
             <h3 className="text-xl font-bold mb-4">Add Custom Image</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-sm font-medium">Image Name</label>
+                <label htmlFor="image-name" className="block mb-2 text-sm font-medium">Image Name</label>
                 <input
+                  id="image-name"
                   type="text"
                   value={customImageName}
                   onChange={(e) => setCustomImageName(e.target.value)}
@@ -187,8 +248,9 @@ export default function DockerImagesPage() {
                 />
               </div>
               <div>
-                <label className="block mb-2 text-sm font-medium">Tag</label>
+                <label htmlFor="image-tag" className="block mb-2 text-sm font-medium">Tag</label>
                 <input
+                  id="image-tag"
                   type="text"
                   value={customImageTag}
                   onChange={(e) => setCustomImageTag(e.target.value)}
@@ -221,43 +283,20 @@ export default function DockerImagesPage() {
                 <input
                   type="checkbox"
                   checked={image.selected}
-                  onChange={() => toggleImage(image.id)}
+                  onChange={() => toggleDockerImage(image.id)}
                   className="mt-1 w-5 h-5 accent-accent-600"
                 />
                 <div className="flex-1">
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-start justify-between w-full">
                     <div>
                       <div className="flex items-center gap-2">
                         <Package className="w-5 h-5 text-accent-400" />
                         <h3 className="font-semibold text-lg">{image.name}</h3>
                       </div>
                       <div className="text-sm text-primary-300">Tag: {image.tag}</div>
-                    </div>
-                    {image.category !== 'custom' && (
-                      <span className="text-xs px-2 py-1 bg-primary-700 rounded">
-                        {image.category}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-primary-400">
-                      {image.size || 'Size unknown'}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {image.hasOffline && (
-                        <span className="flex items-center gap-1 text-xs text-accent-400">
-                          <Download className="w-3 h-3" />
-                          Offline
-                        </span>
-                      )}
-                      {image.category === 'custom' && (
-                        <button
-                          onClick={() => removeImage(image.id)}
-                          className="text-red-400 hover:text-red-300 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <div className="text-sm text-primary-400 mt-1">
+                        {image.size || 'Size unknown'}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -269,16 +308,16 @@ export default function DockerImagesPage() {
         {/* Action Buttons */}
         <div className="flex gap-4">
           <button
-            onClick={() => navigate('/scan')}
+            onClick={handleSaveAndContinue}
             className="btn-accent flex-1"
           >
-            Save Selection
+            Save & Continue
           </button>
           <button
             onClick={() => navigate('/scan')}
             className="btn-secondary"
           >
-            Cancel
+            Back
           </button>
         </div>
       </div>
