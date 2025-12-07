@@ -231,7 +231,10 @@ export default function ScanPage() {
 
         {/* Action Buttons */}
         <div className="flex gap-4">
-          <button className="btn-accent flex-1 flex items-center justify-center">
+          <button 
+            onClick={() => navigate('/bundle-preview')}
+            className="btn-accent flex-1 flex items-center justify-center"
+          >
             <Play className="w-5 h-5 mr-2" />
             Start Scan
           </button>

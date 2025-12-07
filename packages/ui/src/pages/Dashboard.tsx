@@ -39,7 +39,7 @@ export default function Dashboard() {
 
           {/* Setup Card */}
           <button
-            onClick={() => {}}
+            onClick={() => navigate('/setup')}
             className="card p-8 hover:bg-white/15 transition-all duration-200 hover:scale-105 text-left group"
           >
             <div className="flex items-start space-x-4">
