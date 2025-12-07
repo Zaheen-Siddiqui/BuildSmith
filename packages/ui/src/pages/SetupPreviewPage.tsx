@@ -282,17 +282,17 @@ export default function SetupPreviewPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <button
             onClick={handleStartSetup}
-            className="btn-accent flex-1 flex items-center justify-center gap-2"
+            className="btn-accent flex-1 flex items-center justify-center gap-2 min-w-0"
           >
-            <Play className="w-5 h-5" />
+            <Play className="w-5 h-5 flex-shrink-0" />
             Start Installation
           </button>
           <button
             onClick={() => navigate('/setup-config')}
-            className="btn-secondary"
+            className="btn-secondary sm:w-auto"
           >
             Back
           </button>
