@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle, XCircle, AlertTriangle, Download, Home, FileText, ExternalLink } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Download, Home, FileText, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import { useBundleStore } from '../store/bundleStore'
 
 interface InstallationResult {
@@ -13,7 +14,8 @@ interface InstallationResult {
 
 export default function SetupCompletePage() {
   const navigate = useNavigate()
-  const { importedBundle, manifestItems, setupSelections } = useBundleStore()
+  const { importedBundle, manifestItems, setupSelections, selectedSetupDockerImages } = useBundleStore()
+  const [showDockerImages, setShowDockerImages] = useState(false)
 
   if (!importedBundle) {
     navigate('/import')
@@ -34,13 +36,16 @@ export default function SetupCompletePage() {
     })
   }
 
-  if (setupSelections.docker) {
-    const dockerItems = manifestItems.filter(item => item.type === 'image')
+  if (setupSelections.docker && selectedSetupDockerImages.length > 0) {
+    const selectedImages = manifestItems
+      .filter(item => item.type === 'image')
+      .filter((_, index) => selectedSetupDockerImages.includes(`docker-${index}`))
+    
     results.push({
       category: 'Docker Images',
       status: 'success',
-      itemsInstalled: dockerItems.length,
-      totalItems: dockerItems.length,
+      itemsInstalled: selectedImages.length,
+      totalItems: selectedImages.length,
       message: 'All images pulled and ready',
       manualSteps: [
         'Start Docker Desktop to verify images',
@@ -183,7 +188,14 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
         <div className="card p-6 mb-6">
           <h2 className="text-2xl font-bold mb-4">Installation Summary</h2>
           <div className="space-y-3">
-            {results.map((result, index) => (
+            {results.map((result, index) => {
+              const isDockerCategory = result.category === 'Docker Images'
+              const selectedDockerImageNames = isDockerCategory ? manifestItems
+                .filter(item => item.type === 'image')
+                .filter((_, idx) => selectedSetupDockerImages.includes(`docker-${idx}`))
+                .map(item => item.name) : []
+              
+              return (
               <div
                 key={index}
                 className={`p-4 rounded-lg border-2 ${getStatusColor(result.status)}`}
@@ -198,12 +210,35 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
                         <h3 className="text-lg font-semibold">{result.category}</h3>
                         <p className="text-sm text-primary-300">{result.message}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center gap-2">
                         <div className="font-semibold">
                           {result.itemsInstalled}/{result.totalItems}
                         </div>
+                        {isDockerCategory && (
+                          <button
+                            onClick={() => setShowDockerImages(!showDockerImages)}
+                            className="p-1 hover:bg-primary-700 rounded transition-colors"
+                            title={showDockerImages ? 'Hide images' : 'Show images'}
+                          >
+                            {showDockerImages ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        )}
                       </div>
                     </div>
+
+                    {isDockerCategory && showDockerImages && (
+                      <div className="bg-black/20 rounded p-3 mb-3">
+                        <h4 className="text-sm font-semibold mb-2 text-primary-300">Pulled Docker Images:</h4>
+                        <div className="space-y-1">
+                          {selectedDockerImageNames.map((image, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <CheckCircle className="w-3 h-3 text-green-400" />
+                              <span className="font-mono text-primary-200">{image}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {result.manualSteps && result.manualSteps.length > 0 && (
                       <div className="bg-black/20 rounded p-3 mt-3">
@@ -221,7 +256,8 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 

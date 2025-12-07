@@ -14,7 +14,7 @@ interface InstallStep {
 
 export default function SetupPreviewPage() {
   const navigate = useNavigate()
-  const { importedBundle, manifestItems, setupSelections } = useBundleStore()
+  const { importedBundle, manifestItems, setupSelections, selectedSetupDockerImages } = useBundleStore()
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
 
   if (!importedBundle) {
@@ -45,16 +45,22 @@ export default function SetupPreviewPage() {
     })
   }
 
-  if (setupSelections.docker) {
-    const dockerItems = manifestItems.filter(item => item.type === 'image')
-    installationSteps.push({
-      name: 'Docker Images',
-      items: dockerItems.map(item => item.name),
-      estimatedTime: `${dockerItems.length * 2} minutes`,
-      diskSpace: '~2.5 GB',
-      requiresManual: true,
-      manualSteps: ['Ensure Docker Desktop is installed and running']
-    })
+  if (setupSelections.docker && selectedSetupDockerImages.length > 0) {
+    // Filter Docker items based on selected images
+    const dockerItems = manifestItems
+      .filter(item => item.type === 'image')
+      .filter((item, index) => selectedSetupDockerImages.includes(`docker-${index}`))
+    
+    if (dockerItems.length > 0) {
+      installationSteps.push({
+        name: 'Docker Images',
+        items: dockerItems.map(item => item.name),
+        estimatedTime: `${dockerItems.length * 2} minutes`,
+        diskSpace: '~2.5 GB',
+        requiresManual: true,
+        manualSteps: ['Ensure Docker Desktop is installed and running']
+      })
+    }
   }
 
   if (setupSelections.databases) {

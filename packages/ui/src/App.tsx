@@ -1,18 +1,19 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
-import ScanPage from './pages/ScanPage'
+import ScanPage from './pages/scan/ScanPage'
 import SettingsPage from './pages/SettingsPage'
-import BundlePreviewPage from './pages/BundlePreviewPage'
+import BundlePreviewPage from './pages/scan/BundlePreviewPage'
 import SetupPage from './pages/SetupPage'
 import InstallerFlowPage from './pages/InstallerFlowPage'
-import DockerImagesPage from './pages/DockerImagesPage'
-import VSCodeProfilesPage from './pages/VSCodeProfilesPage'
-import DatabaseConnectionsPage from './pages/DatabaseConnectionsPage'
-import ImportPage from './pages/ImportPage'
-import SetupConfigPage from './pages/SetupConfigPage'
-import SetupPreviewPage from './pages/SetupPreviewPage'
-import SetupProgressPage from './pages/SetupProgressPage'
-import SetupCompletePage from './pages/SetupCompletePage'
+import DockerImagesPage from './pages/scan/DockerImagesPage'
+import VSCodeProfilesPage from './pages/scan/VSCodeProfilesPage'
+import DatabaseConnectionsPage from './pages/scan/DatabaseConnectionsPage'
+import ImportPage from './pages/setup/ImportPage'
+import SetupConfigPage from './pages/setup/SetupConfigPage'
+import SetupDockerPage from './pages/setup/SetupDockerPage'
+import SetupPreviewPage from './pages/setup/SetupPreviewPage'
+import SetupProgressPage from './pages/setup/SetupProgressPage'
+import SetupCompletePage from './pages/setup/SetupCompletePage'
 import HelpPage from './pages/HelpPage'
 import RecentBundlesPage from './pages/RecentBundlesPage'
 import './index.css'
@@ -29,6 +30,7 @@ function App() {
           <Route path="/installer" element={<InstallerFlowPage />} />
           <Route path="/import" element={<ImportPage />} />
           <Route path="/setup-config" element={<SetupConfigPage />} />
+          <Route path="/setup-docker" element={<SetupDockerPage />} />
           <Route path="/setup-preview" element={<SetupPreviewPage />} />
           <Route path="/setup-progress" element={<SetupProgressPage />} />
           <Route path="/setup-complete" element={<SetupCompletePage />} />
