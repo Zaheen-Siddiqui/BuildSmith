@@ -112,6 +112,10 @@ export interface BundleState {
   }
   setSetupSelections: (selections: Partial<BundleState['setupSelections']>) => void
   
+  // Selected docker images for setup (subset of manifest items)
+  selectedSetupDockerImages: string[] // Array of image IDs that user selected
+  setSelectedSetupDockerImages: (imageIds: string[]) => void
+  
   // Actions
   resetScan: () => void
   resetBundle: () => void
@@ -219,6 +223,10 @@ export const useBundleStore = create<BundleState>()(
         set((state) => ({
           setupSelections: { ...state.setupSelections, ...selections },
         })),
+
+      // Selected docker images for setup
+      selectedSetupDockerImages: [],
+      setSelectedSetupDockerImages: (imageIds) => set({ selectedSetupDockerImages: imageIds }),
 
       // Actions
       resetScan: () =>

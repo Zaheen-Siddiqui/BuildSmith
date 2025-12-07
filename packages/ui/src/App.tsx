@@ -10,6 +10,7 @@ import VSCodeProfilesPage from './pages/VSCodeProfilesPage'
 import DatabaseConnectionsPage from './pages/DatabaseConnectionsPage'
 import ImportPage from './pages/ImportPage'
 import SetupConfigPage from './pages/SetupConfigPage'
+import SetupDockerPage from './pages/SetupDockerPage'
 import SetupPreviewPage from './pages/SetupPreviewPage'
 import SetupProgressPage from './pages/SetupProgressPage'
 import SetupCompletePage from './pages/SetupCompletePage'
@@ -29,6 +30,7 @@ function App() {
           <Route path="/installer" element={<InstallerFlowPage />} />
           <Route path="/import" element={<ImportPage />} />
           <Route path="/setup-config" element={<SetupConfigPage />} />
+          <Route path="/setup-docker" element={<SetupDockerPage />} />
           <Route path="/setup-preview" element={<SetupPreviewPage />} />
           <Route path="/setup-progress" element={<SetupProgressPage />} />
           <Route path="/setup-complete" element={<SetupCompletePage />} />

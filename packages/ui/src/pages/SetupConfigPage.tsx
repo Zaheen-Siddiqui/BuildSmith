@@ -29,7 +29,13 @@ export default function SetupConfigPage() {
 
   const handleContinue = () => {
     setSetupSelections(localSelections)
-    navigate('/setup-preview')
+    
+    // If docker is selected and has images, go to docker selector first
+    if (localSelections.docker && dockerImages.length > 0) {
+      navigate('/setup-docker')
+    } else {
+      navigate('/setup-preview')
+    }
   }
 
   const selectedCount = Object.values(localSelections).filter(Boolean).length

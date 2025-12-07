@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle, XCircle, Clock, Download, Loader, Terminal, X, Maximize2 } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Download, Loader, Terminal, X, Maximize2, Minimize2 } from 'lucide-react'
 import { useBundleStore } from '../store/bundleStore'
 import { mockIPC } from '../services/mockIPC'
 import { IPCEvent, InstallStep, StepState } from '../types/ipc'
@@ -409,7 +409,7 @@ export default function SetupProgressPage() {
                     className="p-2 hover:bg-white/10 rounded transition-colors"
                     title={isTerminalMaximized ? 'Restore' : 'Maximize'}
                   >
-                    <Maximize2 className="w-5 h-5" />
+                    {isTerminalMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
                   </button>
                   <button
                     onClick={() => setShowTerminal(false)}

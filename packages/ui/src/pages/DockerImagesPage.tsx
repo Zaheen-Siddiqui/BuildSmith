@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Search, Plus, Package } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useBundleStore, DockerImage, ManifestItem } from '../store/bundleStore'
+import DockerImageSelector, { DockerImageData } from '../components/DockerImageSelector'
 
 export default function DockerImagesPage() {
   const navigate = useNavigate()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showAddCustom, setShowAddCustom] = useState(false)
-  const [customImageName, setCustomImageName] = useState('')
-  const [customImageTag, setCustomImageTag] = useState('latest')
+  const [images, setImages] = useState<DockerImageData[]>([])
 
   // Get from store
   const { 
@@ -16,7 +14,6 @@ export default function DockerImagesPage() {
     setSelectedDockerImages,
     scanSettings,
     setScanProgress,
-    toggleDockerImage,
     selectedVSCodeProfiles,
     selectedDatabases,
     setManifestItems,
@@ -27,7 +24,7 @@ export default function DockerImagesPage() {
   useEffect(() => {
     if (selectedDockerImages.length === 0) {
       // Initialize with mock data
-      setSelectedDockerImages([
+      const mockImages: DockerImage[] = [
         { id: '1', name: 'nginx', tag: '1.25.4', size: '142 MB', selected: false },
         { id: '2', name: 'postgres', tag: '15', size: '328 MB', selected: false },
         { id: '3', name: 'redis', tag: '7.2', size: '116 MB', selected: false },
@@ -35,27 +32,45 @@ export default function DockerImagesPage() {
         { id: '5', name: 'python', tag: '3.11-slim', size: '125 MB', selected: false },
         { id: '6', name: 'mongodb', tag: '7.0', size: '685 MB', selected: false },
         { id: '7', name: 'mysql', tag: '8.0', size: '542 MB', selected: false },
-      ])
+      ]
+      setSelectedDockerImages(mockImages)
+      setImages(mockImages)
+    } else {
+      setImages(selectedDockerImages)
     }
-  }, [selectedDockerImages.length, setSelectedDockerImages])
+  }, [selectedDockerImages.length, setSelectedDockerImages, selectedDockerImages])
 
-  const addCustomImage = () => {
-    if (customImageName) {
-      const newImage: DockerImage = {
-        id: Date.now().toString(),
-        name: customImageName,
-        tag: customImageTag,
-        size: 'Unknown',
-        selected: true,
-      }
-      setSelectedDockerImages([...selectedDockerImages, newImage])
-      setCustomImageName('')
-      setCustomImageTag('latest')
-      setShowAddCustom(false)
+  const handleToggleImage = (id: string) => {
+    setImages(prev =>
+      prev.map(img =>
+        img.id === id ? { ...img, selected: !img.selected } : img
+      )
+    )
+    // Update store
+    setSelectedDockerImages(
+      images.map(img =>
+        img.id === id ? { ...img, selected: !img.selected } : img
+      )
+    )
+  }
+
+  const handleAddImage = (newImage: Omit<DockerImageData, 'id'>) => {
+    const imageWithId: DockerImage = {
+      id: Date.now().toString(),
+      name: newImage.name,
+      tag: newImage.tag,
+      size: newImage.size || 'Unknown',
+      selected: newImage.selected,
     }
+    const updatedImages = [...images, imageWithId]
+    setImages(updatedImages)
+    setSelectedDockerImages(updatedImages)
   }
 
   const handleSaveAndContinue = () => {
+    // Save current images to store
+    setSelectedDockerImages(images)
+    
     // Mark docker config as complete
     setScanProgress({ docker: true })
     
@@ -146,22 +161,6 @@ export default function DockerImagesPage() {
   const totalSteps = [scanSettings.vscode, scanSettings.docker, scanSettings.databases].filter(Boolean).length
   const currentStep = [scanSettings.vscode].filter(Boolean).length + 1
 
-  const filteredImages = selectedDockerImages.filter(img => {
-    const matchesSearch = img.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         img.tag.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
-  })
-
-  const selectedCount = selectedDockerImages.filter(img => img.selected).length
-  const totalSize = selectedDockerImages
-    .filter(img => img.selected && img.size)
-    .reduce((acc, img) => {
-      const sizeStr = img.size || '0 MB'
-      const size = Number.parseFloat(sizeStr)
-      const unit = sizeStr.includes('GB') ? 1024 : 1
-      return acc + (size * unit)
-    }, 0)
-
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
@@ -196,117 +195,17 @@ export default function DockerImagesPage() {
           </p>
         </div>
 
-        {/* Summary Card */}
-        <div className="card p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold mb-1">Selected Images</h3>
-              <p className="text-primary-300">
-                {selectedCount} images selected • ~{totalSize.toFixed(0)} MB total
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="card p-6 mb-6">
-          <div className="flex gap-4 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search images..."
-                className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/30 rounded focus:outline-none focus:border-primary-500 transition-colors text-white placeholder:text-gray-400"
-              />
-            </div>
-            <button
-              onClick={() => setShowAddCustom(!showAddCustom)}
-              className="btn-accent flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Custom
-            </button>
-          </div>
-        </div>
-
-        {/* Add Custom Image Modal */}
-        {showAddCustom && (
-          <div className="card p-6 mb-6 border-2 border-accent-600/50">
-            <h3 className="text-xl font-bold mb-4">Add Custom Image</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label htmlFor="image-name" className="block mb-2 text-sm font-medium">Image Name</label>
-                <input
-                  id="image-name"
-                  type="text"
-                  value={customImageName}
-                  onChange={(e) => setCustomImageName(e.target.value)}
-                  placeholder="e.g., alpine, ubuntu, custom-app"
-                  className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded focus:outline-none focus:border-accent-500 transition-colors text-white placeholder:text-gray-400"
-                />
-              </div>
-              <div>
-                <label htmlFor="image-tag" className="block mb-2 text-sm font-medium">Tag</label>
-                <input
-                  id="image-tag"
-                  type="text"
-                  value={customImageTag}
-                  onChange={(e) => setCustomImageTag(e.target.value)}
-                  placeholder="latest"
-                  className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded focus:outline-none focus:border-accent-500 transition-colors text-white placeholder:text-gray-400"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={addCustomImage} className="btn-accent">
-                Add Image
-              </button>
-              <button onClick={() => setShowAddCustom(false)} className="btn-secondary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Images Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {filteredImages.map(image => (
-            <div
-              key={image.id}
-              className={`card p-4 transition-all ${
-                image.selected ? 'border-2 border-accent-600' : 'border-2 border-transparent'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={image.selected}
-                  onChange={() => toggleDockerImage(image.id)}
-                  className="mt-1 w-5 h-5 accent-accent-600"
-                />
-                <div className="flex-1">
-                  <div className="flex items-start justify-between w-full">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Package className="w-5 h-5 text-accent-400" />
-                        <h3 className="font-semibold text-lg">{image.name}</h3>
-                      </div>
-                      <div className="text-sm text-primary-300">Tag: {image.tag}</div>
-                      <div className="text-sm text-primary-400 mt-1">
-                        {image.size || 'Size unknown'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* Docker Image Selector Component */}
+        <DockerImageSelector
+          mode="scan"
+          images={images}
+          onToggle={handleToggleImage}
+          onAdd={handleAddImage}
+          showAddCustom={true}
+        />
 
         {/* Action Buttons */}
-        <div className="flex gap-4">
+        <div className="flex gap-4 mt-6">
           <button
             onClick={handleSaveAndContinue}
             className="btn-accent flex-1"
