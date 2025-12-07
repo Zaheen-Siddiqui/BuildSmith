@@ -170,27 +170,26 @@ export default function SetupConfigPage() {
                     : 'No VS Code extensions in this bundle'
                   }
                 </p>
-                  {localSelections.vscode && (
-                    <div className="bg-black/20 rounded p-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        {vscodeExtensions.slice(0, 6).map((ext, i) => (
-                          <div key={i} className="flex items-center gap-2 text-sm">
-                            <CheckCircle className="w-3 h-3 text-accent-500" />
-                            <span className="text-primary-300">{ext.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {vscodeExtensions.length > 6 && (
-                        <p className="text-xs text-primary-400 mt-2">
-                          ... and {vscodeExtensions.length - 6} more
-                        </p>
-                      )}
+                {localSelections.vscode && vscodeExtensions.length > 0 && (
+                  <div className="bg-black/20 rounded p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {vscodeExtensions.slice(0, 6).map((ext, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="w-3 h-3 text-accent-500" />
+                          <span className="text-primary-300">{ext.name}</span>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
-              </label>
-            </div>
-          )}
+                    {vscodeExtensions.length > 6 && (
+                      <p className="text-xs text-primary-400 mt-2">
+                        ... and {vscodeExtensions.length - 6} more
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </label>
+          </div>
 
           {/* Docker Images */}
           <div
