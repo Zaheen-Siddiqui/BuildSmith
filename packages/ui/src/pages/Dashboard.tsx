@@ -59,7 +59,7 @@ export default function Dashboard() {
         {/* Secondary Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <button
-            onClick={() => {}}
+            onClick={() => navigate('/recent-bundles')}
             className="card p-6 hover:bg-white/15 transition-all duration-200 text-left"
           >
             <FileText className="w-6 h-6 mb-3 text-accent-400" />
@@ -77,7 +77,7 @@ export default function Dashboard() {
           </button>
 
           <button
-            onClick={() => {}}
+            onClick={() => navigate('/help')}
             className="card p-6 hover:bg-white/15 transition-all duration-200 text-left"
           >
             <FileText className="w-6 h-6 mb-3 text-accent-400" />
