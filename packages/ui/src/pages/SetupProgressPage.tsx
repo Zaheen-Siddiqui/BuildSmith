@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle, XCircle, Clock, Download, Loader, Terminal, X, Maximize2, Minimize2 } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Download, Loader, Terminal, X, Maximize2, Minimize2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useBundleStore } from '../store/bundleStore'
 import { mockIPC } from '../services/mockIPC'
 import { IPCEvent, InstallStep, StepState } from '../types/ipc'
@@ -21,6 +21,7 @@ export default function SetupProgressPage() {
   const [currentStepId, setCurrentStepId] = useState<string | null>(null)
   const [showTerminal, setShowTerminal] = useState(false)
   const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
+  const [showDockerImages, setShowDockerImages] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
 
   const handleIPCEvent = (event: IPCEvent) => {
@@ -263,28 +264,55 @@ export default function SetupProgressPage() {
             {setupSelections.docker && selectedSetupDockerImages.length > 0 && (() => {
               const selectedDockerCount = selectedSetupDockerImages.length
               const estimatedTime = `${selectedDockerCount * 2} minutes`
+              const selectedImages = manifestItems
+                .filter(item => item.type === 'image')
+                .filter((_, index) => selectedSetupDockerImages.includes(`docker-${index}`))
+                .map(item => item.name)
+              
               return (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 min-w-[200px]">
-                  {getStatusIcon(getCategoryStatus('docker'))}
-                  <div>
-                    <div className="font-semibold">Docker Images</div>
-                    <div className="text-xs text-primary-400">
-                      {selectedDockerCount} items • 
-                      {estimatedTime} • 
-                      ~2.5 GB
+              <div className="space-y-2">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 min-w-[200px]">
+                    {getStatusIcon(getCategoryStatus('docker'))}
+                    <div>
+                      <div className="font-semibold">Docker Images</div>
+                      <div className="text-xs text-primary-400">
+                        {selectedDockerCount} items • 
+                        {estimatedTime} • 
+                        ~2.5 GB
+                      </div>
+                      <div className="text-xs text-yellow-400">Manual steps</div>
                     </div>
-                    <div className="text-xs text-yellow-400">Manual steps</div>
                   </div>
-                </div>
-                <div className="flex-1">
-                  <div className="w-full bg-primary-800 rounded-full h-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${getCategoryProgress('docker')}%` }}
-                    />
+                  <div className="flex-1">
+                    <div className="w-full bg-primary-800 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${getCategoryProgress('docker')}%` }}
+                      />
+                    </div>
                   </div>
+                  <button
+                    onClick={() => setShowDockerImages(!showDockerImages)}
+                    className="p-2 hover:bg-primary-700 rounded transition-colors"
+                    title={showDockerImages ? 'Hide images' : 'Show images'}
+                  >
+                    {showDockerImages ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
                 </div>
+                {showDockerImages && (
+                  <div className="ml-14 bg-primary-800/50 rounded p-3 border border-primary-700">
+                    <div className="text-sm font-semibold mb-2 text-primary-300">Selected Docker Images:</div>
+                    <div className="space-y-1">
+                      {selectedImages.map((image, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="w-3 h-3 text-green-400" />
+                          <span className="font-mono text-primary-200">{image}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               )
             })()}
