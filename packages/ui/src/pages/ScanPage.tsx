@@ -1,25 +1,89 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Play, Lock, Eye, EyeOff } from 'lucide-react'
+import { useBundleStore, ManifestItem } from '../store/bundleStore'
 
 export default function ScanPage() {
   const navigate = useNavigate()
-  const [includeSecrets, setIncludeSecrets] = useState(false)
-  const [passphrase, setPassphrase] = useState('')
-  const [confirmPassphrase, setConfirmPassphrase] = useState('')
   const [showPassphrase, setShowPassphrase] = useState(false)
   const [showConfirmPassphrase, setShowConfirmPassphrase] = useState(false)
-  const [selectedItems, setSelectedItems] = useState({
-    vscode: true,
-    docker: true,
-    databases: true,
-    devtools: true,
-    environment: true,
-    packages: true,
-  })
-
-  const toggleItem = (key: string) => {
-    setSelectedItems(prev => ({ ...prev, [key]: !prev[key] }))
+  
+  // Get state from store
+  const { scanSettings, setScanSettings, setManifestItems, setCurrentBundle } = useBundleStore()
+  
+  const toggleItem = (key: keyof typeof scanSettings) => {
+    if (key === 'includeSecrets' || key === 'encryptionPassphrase' || key === 'confirmPassphrase') return
+    setScanSettings({ [key]: !scanSettings[key] })
+  }
+  
+  const handleStartScan = () => {
+    // Validate passphrases match if encryption is enabled
+    if (scanSettings.includeSecrets) {
+      if (scanSettings.encryptionPassphrase !== scanSettings.confirmPassphrase) {
+        alert('Passphrases do not match!')
+        return
+      }
+      if (!scanSettings.encryptionPassphrase) {
+        alert('Please enter an encryption passphrase')
+        return
+      }
+    }
+    
+    // Generate mock manifest items based on selected scan items
+    const mockItems: ManifestItem[] = []
+    
+    if (scanSettings.vscode) {
+      mockItems.push(
+        { name: 'ESLint', version: '2.4.0', type: 'extension', source: 'vscode-marketplace', included: true },
+        { name: 'Prettier', version: '9.10.4', type: 'extension', source: 'vscode-marketplace', included: true },
+        { name: 'GitLens', version: '14.0.0', type: 'extension', source: 'vscode-marketplace', included: true },
+      )
+    }
+    
+    if (scanSettings.docker) {
+      mockItems.push(
+        { name: 'nginx', version: 'latest', type: 'image', source: 'docker-hub', included: true },
+        { name: 'node', version: '18-alpine', type: 'image', source: 'docker-hub', included: true },
+        { name: 'postgres', version: '15', type: 'image', source: 'docker-hub', included: true },
+      )
+    }
+    
+    if (scanSettings.databases) {
+      mockItems.push(
+        { name: 'MongoDB Connection', version: '1.0', type: 'secret', source: 'local', included: true },
+        { name: 'PostgreSQL Connection', version: '1.0', type: 'secret', source: 'local', included: true },
+      )
+    }
+    
+    if (scanSettings.devtools) {
+      mockItems.push(
+        { name: 'Git', version: '2.42.0', type: 'installer', source: 'https://git-scm.com', checksum: 'abc123', included: true },
+        { name: 'Node.js', version: '18.17.0', type: 'installer', source: 'https://nodejs.org', checksum: 'def456', included: true },
+      )
+    }
+    
+    if (scanSettings.packages) {
+      mockItems.push(
+        { name: 'npm:react', version: '18.2.0', type: 'package', source: 'npm', included: true },
+        { name: 'npm:typescript', version: '5.2.2', type: 'package', source: 'npm', included: true },
+        { name: 'pip:requests', version: '2.31.0', type: 'package', source: 'pip', included: true },
+      )
+    }
+    
+    // Set manifest items in store
+    setManifestItems(mockItems)
+    
+    // Create bundle metadata
+    setCurrentBundle({
+      id: Date.now().toString(),
+      name: `Bundle_${new Date().toISOString().split('T')[0]}`,
+      createdAt: new Date().toISOString(),
+      description: 'Auto-generated development environment bundle',
+      encrypted: scanSettings.includeSecrets,
+    })
+    
+    // Navigate to bundle preview
+    navigate('/bundle-preview')
   }
 
   return (
@@ -49,7 +113,7 @@ export default function ScanPage() {
             <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
               <input
                 type="checkbox"
-                checked={selectedItems.vscode}
+                checked={scanSettings.vscode}
                 onChange={() => toggleItem('vscode')}
                 className="mt-1 mr-4 w-5 h-5 accent-accent-600"
               />
@@ -65,7 +129,7 @@ export default function ScanPage() {
             <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
               <input
                 type="checkbox"
-                checked={selectedItems.docker}
+                checked={scanSettings.docker}
                 onChange={() => toggleItem('docker')}
                 className="mt-1 mr-4 w-5 h-5 accent-accent-600"
               />
@@ -81,7 +145,7 @@ export default function ScanPage() {
             <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
               <input
                 type="checkbox"
-                checked={selectedItems.databases}
+                checked={scanSettings.databases}
                 onChange={() => toggleItem('databases')}
                 className="mt-1 mr-4 w-5 h-5 accent-accent-600"
               />
@@ -97,7 +161,7 @@ export default function ScanPage() {
             <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
               <input
                 type="checkbox"
-                checked={selectedItems.devtools}
+                checked={scanSettings.devtools}
                 onChange={() => toggleItem('devtools')}
                 className="mt-1 mr-4 w-5 h-5 accent-accent-600"
               />
@@ -113,7 +177,7 @@ export default function ScanPage() {
             <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
               <input
                 type="checkbox"
-                checked={selectedItems.environment}
+                checked={scanSettings.environment}
                 onChange={() => toggleItem('environment')}
                 className="mt-1 mr-4 w-5 h-5 accent-accent-600"
               />
@@ -129,7 +193,7 @@ export default function ScanPage() {
             <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
               <input
                 type="checkbox"
-                checked={selectedItems.packages}
+                checked={scanSettings.packages}
                 onChange={() => toggleItem('packages')}
                 className="mt-1 mr-4 w-5 h-5 accent-accent-600"
               />
@@ -153,8 +217,8 @@ export default function ScanPage() {
           <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors border border-accent-600/30">
             <input
               type="checkbox"
-              checked={includeSecrets}
-              onChange={(e) => setIncludeSecrets(e.target.checked)}
+              checked={scanSettings.includeSecrets}
+              onChange={(e) => setScanSettings({ includeSecrets: e.target.checked })}
               className="mt-1 mr-4 w-5 h-5 accent-accent-600"
             />
             <div className="flex-1">
@@ -162,7 +226,7 @@ export default function ScanPage() {
               <div className="text-sm text-primary-300 mb-3">
                 Export sensitive credentials, API keys, and connection strings with encryption
               </div>
-              {includeSecrets && (
+              {scanSettings.includeSecrets && (
                 <div 
                   className="bg-accent-900/30 p-4 rounded border border-accent-600/30 space-y-4"
                   onClick={(e) => e.stopPropagation()}
@@ -172,8 +236,8 @@ export default function ScanPage() {
                     <div className="relative">
                       <input
                         type={showPassphrase ? "text" : "password"}
-                        value={passphrase}
-                        onChange={(e) => setPassphrase(e.target.value)}
+                        value={scanSettings.encryptionPassphrase}
+                        onChange={(e) => setScanSettings({ encryptionPassphrase: e.target.value })}
                         onClick={(e) => e.stopPropagation()}
                         placeholder="Enter a strong passphrase"
                         className="w-full px-4 py-2 pr-12 bg-white/10 border border-white/30 rounded focus:outline-none focus:border-accent-500 transition-colors text-white placeholder:text-gray-400"
@@ -196,8 +260,8 @@ export default function ScanPage() {
                     <div className="relative">
                       <input
                         type={showConfirmPassphrase ? "text" : "password"}
-                        value={confirmPassphrase}
-                        onChange={(e) => setConfirmPassphrase(e.target.value)}
+                        value={scanSettings.confirmPassphrase}
+                        onChange={(e) => setScanSettings({ confirmPassphrase: e.target.value })}
                         onClick={(e) => e.stopPropagation()}
                         placeholder="Re-enter passphrase"
                         className="w-full px-4 py-2 pr-12 bg-white/10 border border-white/30 rounded focus:outline-none focus:border-accent-500 transition-colors text-white placeholder:text-gray-400"
@@ -214,7 +278,7 @@ export default function ScanPage() {
                         {showConfirmPassphrase ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
-                    {confirmPassphrase && passphrase !== confirmPassphrase && (
+                    {scanSettings.confirmPassphrase && scanSettings.encryptionPassphrase !== scanSettings.confirmPassphrase && (
                       <p className="text-xs text-red-400 mt-1">
                         Passphrases do not match
                       </p>
@@ -232,7 +296,7 @@ export default function ScanPage() {
         {/* Action Buttons */}
         <div className="flex gap-4">
           <button 
-            onClick={() => navigate('/bundle-preview')}
+            onClick={handleStartScan}
             className="btn-accent flex-1 flex items-center justify-center"
           >
             <Play className="w-5 h-5 mr-2" />

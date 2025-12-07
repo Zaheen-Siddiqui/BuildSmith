@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder } from 'lucide-react'
+import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save } from 'lucide-react'
+import { useBundleStore } from '../store/bundleStore'
+import { createBundle, downloadBlob } from '../utils/bundleUtils'
 
 interface BundleItem {
   name: string
@@ -13,42 +15,103 @@ export default function BundlePreviewPage() {
   const navigate = useNavigate()
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']))
   const [editingManifest, setEditingManifest] = useState(false)
-
-  // Mock bundle structure
-  const bundleStructure: BundleItem[] = [
-    { name: 'manifests.json', type: 'file', size: '4.2 KB' },
-    {
-      name: 'profiles',
-      type: 'folder',
-      children: [
-        { name: 'vscode_profiles.json', type: 'file', size: '12.8 KB' }
-      ]
-    },
-    {
-      name: 'installers',
-      type: 'folder',
-      children: [
-        { name: 'DockerDesktop.exe', type: 'file', size: '512 MB' },
-        { name: 'VSCode-Setup.exe', type: 'file', size: '85 MB' }
-      ]
-    },
-    {
-      name: 'images',
-      type: 'folder',
-      children: [
-        { name: 'nginx_1.25.4.tar', type: 'file', size: '142 MB' },
-        { name: 'postgres_15.tar', type: 'file', size: '328 MB' }
-      ]
-    },
-    {
-      name: 'secrets',
-      type: 'folder',
-      children: [
-        { name: 'db_connections.json.gpg', type: 'file', size: '2.1 KB' },
-        { name: 'env_vars.gpg', type: 'file', size: '1.8 KB' }
-      ]
+  const [isExporting, setIsExporting] = useState(false)
+  
+  const { currentBundle, manifestItems, scanSettings, updateManifestItem, setExportPath, resetScan, resetBundle } = useBundleStore()
+  
+  // Generate bundle structure from manifest items
+  const generateBundleStructure = (): BundleItem[] => {
+    const structure: BundleItem[] = [
+      { name: 'bundle.json', type: 'file', size: '1.2 KB' },
+      { name: 'manifests.json', type: 'file', size: '4.2 KB' },
+    ]
+    
+    // Add profiles folder if VS Code items exist
+    const vscodeItems = manifestItems.filter(item => item.type === 'extension')
+    if (vscodeItems.length > 0 || scanSettings.vscode) {
+      structure.push({
+        name: 'profiles',
+        type: 'folder',
+        children: [
+          { name: 'vscode_profile.json', type: 'file', size: `${Math.round(vscodeItems.length * 0.5)}KB` }
+        ]
+      })
     }
-  ]
+    
+    // Add installers folder
+    const installers = manifestItems.filter(item => item.type === 'installer')
+    if (installers.length > 0) {
+      structure.push({
+        name: 'installers',
+        type: 'folder',
+        children: installers.map(item => ({
+          name: `${item.name}_metadata.json`,
+          type: 'file' as const,
+          size: '2 KB'
+        }))
+      })
+    }
+    
+    // Add images folder
+    const images = manifestItems.filter(item => item.type === 'image')
+    if (images.length > 0) {
+      structure.push({
+        name: 'images',
+        type: 'folder',
+        children: images.map(item => ({
+          name: `${item.name.replace('/', '_')}.tar`,
+          type: 'file' as const,
+          size: '~200 MB'
+        }))
+      })
+    }
+    
+    // Add secrets folder if encrypted
+    const secrets = manifestItems.filter(item => item.type === 'secret')
+    if (secrets.length > 0 && scanSettings.includeSecrets) {
+      structure.push({
+        name: 'secrets',
+        type: 'folder',
+        children: secrets.map(item => ({
+          name: `${item.name}.gpg`,
+          type: 'file' as const,
+          size: '~4 KB'
+        }))
+      })
+    }
+    
+    // Add environment file
+    if (scanSettings.environment) {
+      structure.push({ name: 'environment.json', type: 'file', size: '1.5 KB' })
+    }
+    
+    // Add packages file
+    const packages = manifestItems.filter(item => item.type === 'package')
+    if (packages.length > 0) {
+      structure.push({ name: 'packages.json', type: 'file', size: '3.2 KB' })
+    }
+    
+    // Add databases folder
+    if (scanSettings.databases) {
+      structure.push({
+        name: 'databases',
+        type: 'folder',
+        children: [
+          { name: 'connections.json', type: 'file', size: '2.4 KB' }
+        ]
+      })
+    }
+    
+    // Sort: folders first, then files, both alphabetically
+    return structure.sort((a, b) => {
+      if (a.type === b.type) {
+        return a.name.localeCompare(b.name)
+      }
+      return a.type === 'folder' ? -1 : 1
+    })
+  }
+
+  const bundleStructure = generateBundleStructure()
 
   const toggleFolder = (path: string) => {
     const newExpanded = new Set(expandedFolders)
@@ -58,6 +121,49 @@ export default function BundlePreviewPage() {
       newExpanded.add(path)
     }
     setExpandedFolders(newExpanded)
+  }
+
+  const handleExportBundle = async () => {
+    if (!currentBundle) {
+      alert('No bundle metadata found. Please go back to scan.')
+      return
+    }
+    
+    setIsExporting(true)
+    
+    try {
+      // Create the bundle ZIP file
+      const bundleBlob = await createBundle({
+        metadata: currentBundle,
+        manifestItems,
+        scanSettings,
+      })
+      
+      // Generate filename
+      const filename = `${currentBundle.name}.zip`
+      
+      // Download the bundle
+      downloadBlob(bundleBlob, filename)
+      
+      // Store the export path (mock - in real app this would be actual file path)
+      setExportPath(`C:\\BuildSmith\\bundles\\${filename}`)
+      
+      alert(`Bundle exported successfully as ${filename}!`)
+      
+      // Clear scan and bundle state
+      resetScan()
+      resetBundle()
+      
+      // Navigate back to dashboard
+      setTimeout(() => {
+        navigate('/')
+      }, 1000)
+    } catch (error) {
+      console.error('Export failed:', error)
+      alert('Failed to export bundle: ' + (error as Error).message)
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const renderItem = (item: BundleItem, depth: number = 0, parentPath: string = '') => {
@@ -74,16 +180,16 @@ export default function BundlePreviewPage() {
           {item.type === 'folder' ? (
             <>
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-accent-400" />
+                <ChevronDown className="w-4 h-4 text-primary-400" />
               ) : (
-                <ChevronRight className="w-4 h-4 text-accent-400" />
+                <ChevronRight className="w-4 h-4 text-primary-400" />
               )}
-              <Folder className="w-4 h-4 text-primary-400" />
+              <Folder className="w-4 h-4 text-accent-500" />
             </>
           ) : (
             <>
               <div className="w-4" />
-              <File className="w-4 h-4 text-primary-300" />
+              <File className="w-4 h-4 text-primary-400" />
             </>
           )}
           <span className="flex-1">{item.name}</span>
@@ -94,6 +200,27 @@ export default function BundlePreviewPage() {
             {item.children.map(child => renderItem(child, depth + 1, fullPath))}
           </div>
         )}
+      </div>
+    )
+  }
+
+  if (!currentBundle) {
+    return (
+      <div className="min-h-screen p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="card p-8 text-center">
+            <h2 className="text-2xl font-bold mb-4">No Bundle Data</h2>
+            <p className="text-primary-200 mb-6">
+              Please start a scan first to generate bundle data.
+            </p>
+            <button
+              onClick={() => navigate('/scan')}
+              className="btn-accent"
+            >
+              Go to Scan
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -112,152 +239,141 @@ export default function BundlePreviewPage() {
           </button>
           <h1 className="text-4xl font-bold mb-2">Bundle Preview</h1>
           <p className="text-primary-200">
-            Review and customize your export bundle before saving
+            Review and edit your bundle before exporting
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Bundle Contents Tree */}
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">Bundle Contents</h2>
-              <span className="text-sm text-primary-300">Total: 1.08 GB</span>
+        {/* Bundle Info */}
+        <div className="card p-6 mb-6">
+          <h2 className="text-2xl font-bold mb-4">Bundle Information</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm text-primary-300">Name</div>
+              <div className="font-semibold">{currentBundle.name}</div>
             </div>
-            <div className="bg-black/20 rounded-lg p-4 max-h-96 overflow-y-auto">
+            <div>
+              <div className="text-sm text-primary-300">Created</div>
+              <div className="font-semibold">{new Date(currentBundle.createdAt).toLocaleString()}</div>
+            </div>
+            <div>
+              <div className="text-sm text-primary-300">Total Items</div>
+              <div className="font-semibold">{manifestItems.filter(i => i.included).length} items</div>
+            </div>
+            <div>
+              <div className="text-sm text-primary-300">Encryption</div>
+              <div className="font-semibold">{currentBundle.encrypted ? '🔒 Enabled' : '🔓 Disabled'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Bundle Structure */}
+          <div className="card p-6">
+            <h3 className="text-xl font-bold mb-4">Bundle Structure</h3>
+            <div className="bg-black/20 rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
               {bundleStructure.map(item => renderItem(item))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <div className="text-sm text-primary-300">
+                Estimated size: ~{manifestItems.filter(i => i.type === 'image' && i.included).length * 200 + 100} MB
+              </div>
             </div>
           </div>
 
           {/* Manifest Editor */}
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">Manifest</h2>
+              <h3 className="text-xl font-bold">Manifest Items</h3>
               <button
                 onClick={() => setEditingManifest(!editingManifest)}
-                className="flex items-center gap-2 text-accent-400 hover:text-accent-300 transition-colors"
+                className="text-sm text-accent-400 hover:text-accent-300 flex items-center gap-1"
               >
-                <Edit2 className="w-4 h-4" />
-                {editingManifest ? 'View' : 'Edit'}
+                {editingManifest ? (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save
+                  </>
+                ) : (
+                  <>
+                    <Edit2 className="w-4 h-4" />
+                    Edit
+                  </>
+                )}
               </button>
             </div>
-            <div className="bg-black/20 rounded-lg p-4 max-h-96 overflow-y-auto">
-              {editingManifest ? (
-                <textarea
-                  className="w-full h-80 bg-transparent text-sm font-mono text-white focus:outline-none resize-none"
-                  defaultValue={JSON.stringify({
-                    meta: {
-                      createdAt: new Date().toISOString(),
-                      sourceHost: "DESKTOP-PC",
-                      os: "Windows 11"
-                    },
-                    apps: [
-                      {
-                        id: "docker",
-                        install: true,
-                        installer: {
-                          type: "exe",
-                          source: "installers/DockerDesktop.exe"
-                        }
-                      },
-                      {
-                        id: "vscode",
-                        install: true,
-                        installer: {
-                          type: "exe",
-                          source: "installers/VSCode-Setup.exe"
-                        }
-                      }
-                    ],
-                    dockerImages: [
-                      "nginx:1.25.4",
-                      "postgres:15"
-                    ]
-                  }, null, 2)}
-                />
-              ) : (
-                <pre className="text-sm font-mono text-primary-200 whitespace-pre-wrap">
-                  {JSON.stringify({
-                    meta: {
-                      createdAt: new Date().toISOString(),
-                      sourceHost: "DESKTOP-PC",
-                      os: "Windows 11"
-                    },
-                    apps: [
-                      {
-                        id: "docker",
-                        install: true
-                      },
-                      {
-                        id: "vscode",
-                        install: true
-                      }
-                    ],
-                    dockerImages: [
-                      "nginx:1.25.4",
-                      "postgres:15"
-                    ]
-                  }, null, 2)}
-                </pre>
-              )}
+            
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {manifestItems.map((item, index) => (
+                <div 
+                  key={index}
+                  className={`p-3 rounded border transition-colors ${
+                    item.included 
+                      ? 'border-accent-600/30 bg-accent-900/10' 
+                      : 'border-primary-700/30 bg-white/5 opacity-50'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {editingManifest && (
+                      <input
+                        type="checkbox"
+                        checked={item.included}
+                        onChange={(e) => updateManifestItem(index, { included: e.target.checked })}
+                        className="mt-1 w-4 h-4 accent-accent-600"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold truncate">{item.name}</span>
+                        <span className="px-2 py-0.5 text-xs rounded bg-primary-800 text-primary-200">
+                          {item.type}
+                        </span>
+                      </div>
+                      <div className="text-sm text-primary-400">v{item.version}</div>
+                      {item.source && (
+                        <div className="text-xs text-primary-500 truncate">{item.source}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Bundle Info */}
+        {/* Export Section */}
         <div className="card p-6 mt-6">
-          <h3 className="text-xl font-bold mb-4">Bundle Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <div className="text-sm text-primary-300 mb-1">Created</div>
-              <div className="font-semibold">{new Date().toLocaleDateString()}</div>
-            </div>
-            <div>
-              <div className="text-sm text-primary-300 mb-1">Source</div>
-              <div className="font-semibold">DESKTOP-PC (Windows 11)</div>
-            </div>
-            <div>
-              <div className="text-sm text-primary-300 mb-1">Encryption</div>
-              <div className="font-semibold flex items-center gap-2">
-                <span className="w-2 h-2 bg-accent-500 rounded-full"></span>
-                GPG Encrypted
+          <h3 className="text-xl font-bold mb-4">Export Bundle</h3>
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <label className="block mb-2 font-semibold">Bundle will be downloaded as:</label>
+              <div className="bg-black/20 p-3 rounded font-mono text-sm">
+                {currentBundle.name}.zip
               </div>
             </div>
+            <button
+              onClick={handleExportBundle}
+              disabled={isExporting}
+              className="btn-accent flex items-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              {isExporting ? 'Exporting...' : 'Export Bundle'}
+            </button>
           </div>
         </div>
 
-        {/* Export Options */}
-        <div className="card p-6 mt-6">
-          <h3 className="text-xl font-bold mb-4">Export Options</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2 font-semibold">Export Location</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value="C:\\Users\\Documents\\BuildSmith\\Bundles\\bundle_2025-12-07.zip"
-                  className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded focus:outline-none focus:border-primary-500 transition-colors text-white"
-                  readOnly
-                />
-                <button className="btn-secondary px-4">Browse</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-4 mt-6">
-          <button 
-            onClick={() => navigate('/')}
-            className="btn-accent flex-1 flex items-center justify-center"
-          >
-            <Download className="w-5 h-5 mr-2" />
-            Export Bundle
-          </button>
+        {/* Bottom Actions */}
+        <div className="flex justify-between items-center mt-6">
           <button
             onClick={() => navigate('/scan')}
+            className="text-primary-300 hover:text-white transition-colors"
+          >
+            ← Back to Scan
+          </button>
+          <button
+            onClick={() => navigate('/')}
             className="btn-secondary"
           >
-            Back to Scan
+            Cancel
           </button>
         </div>
       </div>
