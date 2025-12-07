@@ -39,7 +39,7 @@ export default function Dashboard() {
 
           {/* Setup Card */}
           <button
-            onClick={() => navigate('/setup')}
+            onClick={() => navigate('/import')}
             className="card p-8 hover:bg-white/15 transition-all duration-200 hover:scale-105 text-left group"
           >
             <div className="flex items-start space-x-4">
@@ -47,7 +47,7 @@ export default function Dashboard() {
                 <Package className="w-8 h-8" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold mb-2">Setup Environment</h2>
+                <h2 className="text-2xl font-bold mb-2">Import Bundle</h2>
                 <p className="text-primary-200">
                   Import a bundle and automatically set up your development environment on this device.
                 </p>
