@@ -33,6 +33,7 @@ export interface StartSetupCommand {
   cmd: 'startSetup'
   bundlePath: string
   selectedItems: string[]
+  selectedDockerImages?: string[] // Array of selected Docker image names
   options: {
     preferOffline?: boolean
     skipManual?: boolean

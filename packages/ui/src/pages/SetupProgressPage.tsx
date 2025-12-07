@@ -15,7 +15,7 @@ interface LogEntry {
 
 export default function SetupProgressPage() {
   const navigate = useNavigate()
-  const { importedBundle, setupSelections } = useBundleStore()
+  const { importedBundle, setupSelections, manifestItems, selectedSetupDockerImages } = useBundleStore()
   const [steps, setSteps] = useState<InstallStep[]>([])
   const [allLogs, setAllLogs] = useState<LogEntry[]>([])
   const [currentStepId, setCurrentStepId] = useState<string | null>(null)
@@ -113,16 +113,23 @@ export default function SetupProgressPage() {
     // Build selected items list
     const selectedItems: string[] = []
     if (setupSelections.vscode) selectedItems.push('vscode')
-    if (setupSelections.docker) selectedItems.push('docker')
+    if (setupSelections.docker && selectedSetupDockerImages.length > 0) selectedItems.push('docker')
     if (setupSelections.databases) selectedItems.push('databases')
     if (setupSelections.devtools) selectedItems.push('devtools')
     if (setupSelections.packages) selectedItems.push('packages')
+
+    // Calculate selected Docker images
+    const selectedDockerImages = manifestItems
+      .filter(item => item.type === 'image')
+      .filter((_, index) => selectedSetupDockerImages.includes(`docker-${index}`))
+      .map(item => item.name)
 
     try {
       await mockIPC.startSetup({
         cmd: 'startSetup',
         bundlePath: importedBundle?.name || 'bundle.zip',
         selectedItems,
+        selectedDockerImages, // Pass selected Docker images
         options: {
           preferOffline: false,
           skipManual: false
@@ -253,16 +260,19 @@ export default function SetupProgressPage() {
               </div>
             )}
 
-            {setupSelections.docker && (
+            {setupSelections.docker && selectedSetupDockerImages.length > 0 && (() => {
+              const selectedDockerCount = selectedSetupDockerImages.length
+              const estimatedTime = `${selectedDockerCount * 2} minutes`
+              return (
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 min-w-[200px]">
                   {getStatusIcon(getCategoryStatus('docker'))}
                   <div>
                     <div className="font-semibold">Docker Images</div>
                     <div className="text-xs text-primary-400">
-                      {getCategoryStats('docker', 'Docker', 2, '4 minutes', '~2.5 GB').count} items • 
-                      {getCategoryStats('docker', 'Docker', 2, '4 minutes', '~2.5 GB').time} • 
-                      {getCategoryStats('docker', 'Docker', 2, '4 minutes', '~2.5 GB').size}
+                      {selectedDockerCount} items • 
+                      {estimatedTime} • 
+                      ~2.5 GB
                     </div>
                     <div className="text-xs text-yellow-400">Manual steps</div>
                   </div>
@@ -276,7 +286,8 @@ export default function SetupProgressPage() {
                   </div>
                 </div>
               </div>
-            )}
+              )
+            })()}
 
             {setupSelections.databases && (
               <div className="flex items-center gap-4">

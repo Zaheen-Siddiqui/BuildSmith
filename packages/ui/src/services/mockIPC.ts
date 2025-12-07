@@ -115,7 +115,7 @@ export class MockIPCService {
     this.currentCommand = command
     this.currentStepIndex = 0
 
-    this.currentSteps = this.generateSteps(command.selectedItems)
+    this.currentSteps = this.generateSteps(command)
     console.log('Generated steps:', this.currentSteps)
 
     await this.executeAllSteps()
@@ -197,8 +197,8 @@ export class MockIPCService {
       case 'install-docker':
         await this.simulateInstall(step, 'Docker Desktop')
         break
-      case 'load-docker-images':
-        await this.simulateDockerImageLoad(step)
+      case 'docker':
+        await this.simulateDockerImageLoad(step, command)
         break
       case 'install-vscode-extensions':
         await this.simulateVSCodeExtensions(step)
@@ -288,8 +288,15 @@ export class MockIPCService {
   /**
    * Simulate Docker image loading
    */
-  private async simulateDockerImageLoad(step: InstallStep): Promise<void> {
-    const images = ['nginx:latest', 'node:18-alpine', 'postgres:15']
+  private async simulateDockerImageLoad(step: InstallStep, command: StartSetupCommand): Promise<void> {
+    const images = command.selectedDockerImages || []
+
+    if (images.length === 0) {
+      this.log(step.id, 'warn', 'No Docker images selected to load')
+      this.status(step.id, 'success', 'Skipped - no images selected')
+      step.status = 'success'
+      return
+    }
 
     for (const image of images) {
       if (this.shouldAbort) return
@@ -390,14 +397,15 @@ export class MockIPCService {
   /**
    * Generate installation steps based on selected items
    */
-  private generateSteps(selectedItems: string[]): InstallStep[] {
+  private generateSteps(command: StartSetupCommand): InstallStep[] {
     const steps: InstallStep[] = []
+    const { selectedItems, selectedDockerImages } = command
 
-    if (selectedItems.includes('docker')) {
+    if (selectedItems.includes('docker') && selectedDockerImages && selectedDockerImages.length > 0) {
       steps.push(
         { id: 'download-docker', name: 'Download Docker Desktop', status: 'pending', logs: [] },
         { id: 'install-docker', name: 'Install Docker Desktop', status: 'pending', logs: [] },
-        { id: 'load-docker-images', name: 'Load Docker Images', status: 'pending', logs: [] }
+        { id: 'docker', name: `Load Docker Images (${selectedDockerImages.length} images)`, status: 'pending', logs: [] }
       )
     }
 
