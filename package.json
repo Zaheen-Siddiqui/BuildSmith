@@ -1,0 +1,25 @@
+{
+  "name": "buildsmith",
+  "version": "0.1.0",
+  "description": "Desktop application for automated replication of development environments",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/ui",
+    "build": "npm run build --workspace=packages/ui",
+    "lint": "npm run lint --workspace=packages/ui"
+  },
+  "keywords": [
+    "electron",
+    "desktop",
+    "devops",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
