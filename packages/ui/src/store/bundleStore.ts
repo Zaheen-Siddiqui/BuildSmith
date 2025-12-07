@@ -16,10 +16,36 @@ export interface ScanSettings {
 export interface ManifestItem {
   name: string
   version: string
-  type: 'installer' | 'package' | 'extension' | 'image' | 'profile' | 'secret'
+  type: 'installer' | 'package' | 'extension' | 'image' | 'profile' | 'secret' | 'database'
   source?: string
   checksum?: string
   included: boolean
+}
+
+export interface DockerImage {
+  id: string
+  name: string
+  tag: string
+  size: string  // e.g., "142 MB" or "1.2 GB"
+  selected: boolean
+}
+
+export interface VSCodeProfile {
+  id: string
+  name: string
+  extensions: string[]
+  settings: Record<string, unknown>
+  selected: boolean
+}
+
+export interface DatabaseConnection {
+  id: string
+  name: string
+  type: 'postgresql' | 'mysql' | 'mongodb' | 'redis' | 'sqlserver'
+  host: string
+  port: number
+  database: string
+  selected: boolean
 }
 
 export interface BundleMetadata {
@@ -34,6 +60,27 @@ export interface BundleState {
   // Scan settings
   scanSettings: ScanSettings
   setScanSettings: (settings: Partial<ScanSettings>) => void
+  
+  // Selected items for scan
+  selectedDockerImages: DockerImage[]
+  setSelectedDockerImages: (images: DockerImage[]) => void
+  toggleDockerImage: (id: string) => void
+  
+  selectedVSCodeProfiles: VSCodeProfile[]
+  setSelectedVSCodeProfiles: (profiles: VSCodeProfile[]) => void
+  toggleVSCodeProfile: (id: string) => void
+  
+  selectedDatabases: DatabaseConnection[]
+  setSelectedDatabases: (databases: DatabaseConnection[]) => void
+  toggleDatabase: (id: string) => void
+  
+  // Scan progress tracking
+  scanProgress: {
+    docker: boolean  // true if Docker images page completed
+    vscode: boolean  // true if VS Code profiles page completed
+    database: boolean  // true if Database connections page completed
+  }
+  setScanProgress: (progress: Partial<BundleState['scanProgress']>) => void
   
   // Bundle metadata
   currentBundle: BundleMetadata | null
@@ -88,6 +135,45 @@ export const useBundleStore = create<BundleState>()(
       setScanSettings: (settings) =>
         set((state) => ({
           scanSettings: { ...state.scanSettings, ...settings },
+        })),
+
+      // Selected items
+      selectedDockerImages: [],
+      setSelectedDockerImages: (images) => set({ selectedDockerImages: images }),
+      toggleDockerImage: (id) =>
+        set((state) => ({
+          selectedDockerImages: state.selectedDockerImages.map((img) =>
+            img.id === id ? { ...img, selected: !img.selected } : img
+          ),
+        })),
+
+      selectedVSCodeProfiles: [],
+      setSelectedVSCodeProfiles: (profiles) => set({ selectedVSCodeProfiles: profiles }),
+      toggleVSCodeProfile: (id) =>
+        set((state) => ({
+          selectedVSCodeProfiles: state.selectedVSCodeProfiles.map((profile) =>
+            profile.id === id ? { ...profile, selected: !profile.selected } : profile
+          ),
+        })),
+
+      selectedDatabases: [],
+      setSelectedDatabases: (databases) => set({ selectedDatabases: databases }),
+      toggleDatabase: (id) =>
+        set((state) => ({
+          selectedDatabases: state.selectedDatabases.map((db) =>
+            db.id === id ? { ...db, selected: !db.selected } : db
+          ),
+        })),
+
+      // Scan progress
+      scanProgress: {
+        docker: false,
+        vscode: false,
+        database: false,
+      },
+      setScanProgress: (progress) =>
+        set((state) => ({
+          scanProgress: { ...state.scanProgress, ...progress },
         })),
 
       // Bundle metadata
@@ -147,6 +233,14 @@ export const useBundleStore = create<BundleState>()(
             includeSecrets: false,
             encryptionPassphrase: '',
             confirmPassphrase: '',
+          },
+          selectedDockerImages: [],
+          selectedVSCodeProfiles: [],
+          selectedDatabases: [],
+          scanProgress: {
+            docker: false,
+            vscode: false,
+            database: false,
           },
         }),
       resetBundle: () =>

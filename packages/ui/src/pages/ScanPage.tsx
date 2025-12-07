@@ -9,7 +9,12 @@ export default function ScanPage() {
   const [showConfirmPassphrase, setShowConfirmPassphrase] = useState(false)
   
   // Get state from store
-  const { scanSettings, setScanSettings, setManifestItems, setCurrentBundle } = useBundleStore()
+  const { 
+    scanSettings, 
+    setScanSettings, 
+    setManifestItems, 
+    setCurrentBundle,
+  } = useBundleStore()
   
   const toggleItem = (key: keyof typeof scanSettings) => {
     if (key === 'includeSecrets' || key === 'encryptionPassphrase' || key === 'confirmPassphrase') return
@@ -29,31 +34,24 @@ export default function ScanPage() {
       }
     }
     
-    // Generate mock manifest items based on selected scan items
+    // Determine the flow order: VS Code → Docker → Database
+    const configPages = []
+    if (scanSettings.vscode) configPages.push('/vscode-profiles')
+    if (scanSettings.docker) configPages.push('/docker-images')
+    if (scanSettings.databases) configPages.push('/database-connections')
+    
+    // If no config pages needed, go directly to bundle preview with mock data
+    if (configPages.length === 0) {
+      generateMockManifest()
+      navigate('/bundle-preview')
+    } else {
+      // Navigate to first config page
+      navigate(configPages[0])
+    }
+  }
+  
+  const generateMockManifest = () => {
     const mockItems: ManifestItem[] = []
-    
-    if (scanSettings.vscode) {
-      mockItems.push(
-        { name: 'ESLint', version: '2.4.0', type: 'extension', source: 'vscode-marketplace', included: true },
-        { name: 'Prettier', version: '9.10.4', type: 'extension', source: 'vscode-marketplace', included: true },
-        { name: 'GitLens', version: '14.0.0', type: 'extension', source: 'vscode-marketplace', included: true },
-      )
-    }
-    
-    if (scanSettings.docker) {
-      mockItems.push(
-        { name: 'nginx', version: 'latest', type: 'image', source: 'docker-hub', included: true },
-        { name: 'node', version: '18-alpine', type: 'image', source: 'docker-hub', included: true },
-        { name: 'postgres', version: '15', type: 'image', source: 'docker-hub', included: true },
-      )
-    }
-    
-    if (scanSettings.databases) {
-      mockItems.push(
-        { name: 'MongoDB Connection', version: '1.0', type: 'secret', source: 'local', included: true },
-        { name: 'PostgreSQL Connection', version: '1.0', type: 'secret', source: 'local', included: true },
-      )
-    }
     
     if (scanSettings.devtools) {
       mockItems.push(
