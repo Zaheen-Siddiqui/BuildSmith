@@ -50,7 +50,22 @@ export default function SetupPage() {
                   placeholder="Select a bundle file (.zip)"
                   className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded focus:outline-none focus:border-primary-500 transition-colors text-white placeholder:text-gray-400"
                 />
-                <button className="btn-secondary px-6 flex items-center gap-2">
+                <input
+                  type="file"
+                  id="bundleFileInput"
+                  accept=".zip"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setBundlePath(file.name)
+                    }
+                  }}
+                  className="hidden"
+                />
+                <button 
+                  onClick={() => document.getElementById('bundleFileInput')?.click()}
+                  className="btn-secondary px-6 flex items-center gap-2"
+                >
                   <Upload className="w-4 h-4" />
                   Browse
                 </button>
@@ -225,7 +240,12 @@ export default function SetupPage() {
             {/* Action Buttons */}
             <div className="flex gap-4">
               <button 
-                onClick={() => navigate('/installer')}
+                onClick={() => navigate('/installer', {
+                  state: {
+                    bundlePath,
+                    selectedItems: Object.keys(selectedItems).filter(k => selectedItems[k as keyof typeof selectedItems])
+                  }
+                })}
                 className="btn-accent flex-1 flex items-center justify-center"
               >
                 <Play className="w-5 h-5 mr-2" />
