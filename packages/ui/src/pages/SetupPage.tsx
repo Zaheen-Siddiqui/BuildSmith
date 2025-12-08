@@ -14,7 +14,7 @@ export default function SetupPage() {
     packages: true,
   })
 
-  const toggleItem = (key: string) => {
+  const toggleItem = (key: keyof typeof selectedItems) => {
     setSelectedItems(prev => ({ ...prev, [key]: !prev[key] }))
   }
 

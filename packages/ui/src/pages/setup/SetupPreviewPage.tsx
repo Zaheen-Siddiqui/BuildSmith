@@ -62,7 +62,7 @@ export default function SetupPreviewPage() {
     // Filter Docker items based on selected images
     const dockerItems = manifestItems
       .filter(item => item.type === 'image')
-      .filter((item, index) => selectedSetupDockerImages.includes(`docker-${index}`))
+      .filter((_item, index) => selectedSetupDockerImages.includes(`docker-${index}`))
     
     if (dockerItems.length > 0) {
       installationSteps.push({

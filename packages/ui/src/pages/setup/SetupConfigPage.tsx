@@ -26,10 +26,10 @@ export default function SetupConfigPage() {
   // Group items by category
   const vscodeExtensions = manifestItems.filter(item => item.type === 'extension')
   const dockerImages = manifestItems.filter(item => item.type === 'image')
-  const databases = manifestItems.filter(item => item.type === 'secret')
+  const databases = manifestItems.filter(item => item.type === 'database')
   const devtools = manifestItems.filter(item => item.type === 'installer')
-  const environmentVars = manifestItems.filter(item => item.type === 'env' || item.type === 'environment')
-  const packages = manifestItems.filter(item => item.type === 'package' || item.type === 'dependency')
+  const environmentVars = manifestItems.filter(item => item.type === 'secret')
+  const packages = manifestItems.filter(item => item.type === 'package')
 
   // Define all categories with their availability
   const categories = [
