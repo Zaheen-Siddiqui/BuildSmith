@@ -1,0 +1,129 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        working-directory: packages/ui
+        run: npm run lint
+      
+      - name: Run unit tests
+        working-directory: packages/ui
+        run: npm run test:run
+      
+      - name: Install Playwright browsers
+        working-directory: packages/ui
+        run: npx playwright install --with-deps chromium
+      
+      - name: Run E2E tests
+        working-directory: packages/ui
+        run: npm run test:e2e
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: packages/ui/playwright-report/
+          retention-days: 30
+  
+  build:
+    name: Build Application
+    needs: test
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build Electron app
+        working-directory: packages/ui
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildsmith-windows
+          path: packages/ui/dist/*.exe
+          retention-days: 30
+      
+      - name: Upload build artifacts (portable)
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildsmith-windows-portable
+          path: packages/ui/dist/*.zip
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: windows-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: buildsmith-windows
+          path: dist/
+      
+      - name: Download portable artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: buildsmith-windows-portable
+          path: dist/
+      
+      - name: Get version from package.json
+        id: package-version
+        working-directory: packages/ui
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.package-version.outputs.version }}
+          name: BuildSmith v${{ steps.package-version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
