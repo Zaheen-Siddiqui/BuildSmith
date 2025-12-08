@@ -20,6 +20,7 @@ export default function SetupPreviewPage() {
     setupSelections, 
     selectedSetupDockerImages,
     selectedSetupVSCodeProfiles,
+    selectedSetupDatabases,
   } = useBundleStore()
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
 
@@ -75,18 +76,24 @@ export default function SetupPreviewPage() {
     }
   }
 
-  if (setupSelections.databases) {
-    const dbItems = manifestItems.filter(item => item.type === 'secret')
-    installationSteps.push({
-      name: 'Database Connections',
-      items: dbItems.map(item => item.name),
-      estimatedTime: '2 minutes',
-      requiresManual: true,
-      manualSteps: [
-        'Database credentials will be imported',
-        'You may need to verify network access to remote databases'
-      ]
-    })
+  if (setupSelections.databases && selectedSetupDatabases.length > 0) {
+    // Filter database items based on selected databases
+    const dbItems = manifestItems
+      .filter(item => item.type === 'secret')
+      .filter(item => selectedSetupDatabases.includes(item.name))
+    
+    if (dbItems.length > 0) {
+      installationSteps.push({
+        name: 'Database Connections',
+        items: dbItems.map(item => item.name),
+        estimatedTime: '2 minutes',
+        requiresManual: true,
+        manualSteps: [
+          'Database credentials will be imported',
+          'You may need to verify network access to remote databases'
+        ]
+      })
+    }
   }
 
   if (setupSelections.devtools) {

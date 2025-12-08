@@ -21,6 +21,7 @@ export default function SetupProgressPage() {
     manifestItems, 
     selectedSetupDockerImages,
     selectedSetupVSCodeProfiles,
+    selectedSetupDatabases,
   } = useBundleStore()
   const [steps, setSteps] = useState<InstallStep[]>([])
   const [allLogs, setAllLogs] = useState<LogEntry[]>([])
@@ -29,6 +30,7 @@ export default function SetupProgressPage() {
   const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
   const [showDockerImages, setShowDockerImages] = useState(false)
   const [showVSCodeExtensions, setShowVSCodeExtensions] = useState(false)
+  const [showDatabases, setShowDatabases] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
 
   const handleIPCEvent = (event: IPCEvent) => {
@@ -360,7 +362,17 @@ export default function SetupProgressPage() {
                 <div className="flex items-center gap-2 min-w-[200px]">
                   {getStatusIcon(getCategoryStatus('databases'))}
                   <div>
-                    <div className="font-semibold">Database Connections</div>
+                    <div className="font-semibold flex items-center gap-2">
+                      Database Connections
+                      {selectedSetupDatabases.length > 0 && (
+                        <button
+                          onClick={() => setShowDatabases(!showDatabases)}
+                          className="text-accent-400 hover:text-accent-300 transition-colors"
+                        >
+                          {showDatabases ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </div>
                     <div className="text-xs text-primary-400">
                       {getCategoryStats('databases', 'Databases', 1, '2 minutes').count} items • 
                       {getCategoryStats('databases', 'Databases', 1, '2 minutes').time}
@@ -378,6 +390,28 @@ export default function SetupProgressPage() {
                 </div>
               </div>
             )}
+            {setupSelections.databases && showDatabases && selectedSetupDatabases.length > 0 && (() => {
+              const selectedDbNames = manifestItems
+                .filter(item => item.type === 'secret')
+                .filter(item => selectedSetupDatabases.includes(item.name))
+                .map(item => item.name)
+              
+              return (
+              <div className="ml-8 mb-4">
+                <div className="bg-black/20 rounded p-3">
+                  <h4 className="text-sm font-semibold mb-2 text-primary-300">Selected Database Connections:</h4>
+                  <div className="space-y-1">
+                    {selectedDbNames.map((db, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="w-3 h-3 text-green-400" />
+                        <span className="text-primary-200">{db}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              )
+            })()}
 
             {setupSelections.devtools && (
               <div className="flex items-center gap-4">

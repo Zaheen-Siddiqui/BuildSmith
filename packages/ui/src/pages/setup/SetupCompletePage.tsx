@@ -20,9 +20,11 @@ export default function SetupCompletePage() {
     setupSelections, 
     selectedSetupDockerImages,
     selectedSetupVSCodeProfiles,
+    selectedSetupDatabases,
   } = useBundleStore()
   const [showDockerImages, setShowDockerImages] = useState(false)
   const [showVSCodeExtensions, setShowVSCodeExtensions] = useState(false)
+  const [showDatabases, setShowDatabases] = useState(false)
 
   if (!importedBundle) {
     navigate('/import')
@@ -64,13 +66,16 @@ export default function SetupCompletePage() {
     })
   }
 
-  if (setupSelections.databases) {
-    const dbItems = manifestItems.filter(item => item.type === 'secret')
+  if (setupSelections.databases && selectedSetupDatabases.length > 0) {
+    const selectedDbs = manifestItems
+      .filter(item => item.type === 'secret')
+      .filter(item => selectedSetupDatabases.includes(item.name))
+    
     results.push({
       category: 'Database Connections',
       status: 'warning',
-      itemsInstalled: dbItems.length,
-      totalItems: dbItems.length,
+      itemsInstalled: selectedDbs.length,
+      totalItems: selectedDbs.length,
       message: 'Connections imported, network access may be required',
       manualSteps: [
         'Test database connections in MongoDB Compass',
@@ -201,6 +206,7 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
             {results.map((result, index) => {
               const isDockerCategory = result.category === 'Docker Images'
               const isVSCodeCategory = result.category === 'VS Code Extensions'
+              const isDatabasesCategory = result.category === 'Database Connections'
               
               const selectedDockerImageNames = isDockerCategory ? manifestItems
                 .filter(item => item.type === 'image')
@@ -249,6 +255,15 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
                             {showDockerImages ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </button>
                         )}
+                        {isDatabasesCategory && (
+                          <button
+                            onClick={() => setShowDatabases(!showDatabases)}
+                            className="p-1 hover:bg-primary-700 rounded transition-colors"
+                            title={showDatabases ? 'Hide databases' : 'Show databases'}
+                          >
+                            {showDatabases ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -279,6 +294,27 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
                         </div>
                       </div>
                     )}
+
+                    {isDatabasesCategory && showDatabases && (() => {
+                      const selectedDbNames = manifestItems
+                        .filter(item => item.type === 'secret')
+                        .filter(item => selectedSetupDatabases.includes(item.name))
+                        .map(item => item.name)
+                      
+                      return (
+                        <div className="bg-black/20 rounded p-3 mb-3">
+                          <h4 className="text-sm font-semibold mb-2 text-primary-300">Imported Database Connections:</h4>
+                          <div className="space-y-1">
+                            {selectedDbNames.map((db, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-sm">
+                                <CheckCircle className="w-3 h-3 text-green-400" />
+                                <span className="text-primary-200">{db}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })()}
 
                     {result.manualSteps && result.manualSteps.length > 0 && (
                       <div className="bg-black/20 rounded p-3 mt-3">
