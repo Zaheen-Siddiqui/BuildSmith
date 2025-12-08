@@ -12,9 +12,10 @@ test.describe('Setup Workflow', () => {
     // Step 1: Import bundle file
     const fileChooserPromise = page.waitForEvent('filechooser')
     await page.click('button:has-text("Select Bundle File")')
-    const fileChooser = await fileChooserPromise
+    await fileChooserPromise
     
     // Note: In real test, you'd use a fixture bundle file
+    // const fileChooser = await fileChooserPromise
     // await fileChooser.setFiles(path.join(__dirname, 'fixtures', 'test-bundle.buildsmith.zip'))
     
     // Step 2: Configure setup options

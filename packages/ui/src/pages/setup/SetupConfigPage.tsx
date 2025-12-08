@@ -88,7 +88,6 @@ export default function SetupConfigPage() {
   // Calculate counts based on available categories
   const selectedCount = availableCategories.filter(cat => localSelections[cat.key]).length
   const totalCategories = availableCategories.length
-  const allSelected = availableCategories.every(cat => localSelections[cat.key])
 
   return (
     <div className="min-h-screen p-8">

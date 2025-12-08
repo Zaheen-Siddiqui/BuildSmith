@@ -82,7 +82,7 @@ export default function RecentBundlesPage() {
     }
   }
 
-  const getComponentBadges = (components: any) => {
+  const getComponentBadges = (components: { vscode?: boolean; docker?: boolean; databases?: boolean; devtools?: boolean; environment?: boolean; packages?: boolean }) => {
     const badges = []
     if (components.vscode) badges.push('VS Code')
     if (components.docker) badges.push('Docker')
