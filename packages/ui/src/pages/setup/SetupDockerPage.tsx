@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Package } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
-import DockerImageSelector, { DockerImageData } from '../components/DockerImageSelector'
+import { useBundleStore } from '../../store/bundleStore'
+import DockerImageSelector, { DockerImageData } from '../../components/DockerImageSelector'
 
 export default function SetupDockerPage() {
   const navigate = useNavigate()
@@ -63,8 +63,13 @@ export default function SetupDockerPage() {
       setSetupSelections({ ...setupSelections, docker: false })
     }
 
-    // Navigate to preview
-    navigate('/setup-preview')
+    // Navigate to next page based on setup selections
+    // Order: vscode -> docker -> databases -> preview
+    if (setupSelections.databases && manifestItems.some(item => item.type === 'secret')) {
+      navigate('/setup-databases')
+    } else {
+      navigate('/setup-preview')
+    }
   }
 
   if (!importedBundle) return null

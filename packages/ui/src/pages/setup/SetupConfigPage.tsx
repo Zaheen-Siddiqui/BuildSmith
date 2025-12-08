@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Package, Code, Database, HardDrive, Wrench, CheckCircle, Settings } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
+import { useBundleStore } from '../../store/bundleStore'
 
 export default function SetupConfigPage() {
   const navigate = useNavigate()
@@ -73,9 +73,13 @@ export default function SetupConfigPage() {
   const handleContinue = () => {
     setSetupSelections(localSelections)
     
-    // If docker is selected and has images, go to docker selector first
-    if (localSelections.docker && dockerImages.length > 0) {
+    // Navigate to selectors in order: vscode -> docker -> databases -> preview
+    if (localSelections.vscode && vscodeExtensions.length > 0) {
+      navigate('/setup-vscode')
+    } else if (localSelections.docker && dockerImages.length > 0) {
       navigate('/setup-docker')
+    } else if (localSelections.databases && databases.length > 0) {
+      navigate('/setup-databases')
     } else {
       navigate('/setup-preview')
     }

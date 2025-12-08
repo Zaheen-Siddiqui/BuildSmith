@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, AlertTriangle, Clock, HardDrive, Play, ChevronDown, ChevronRight } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
+import { useBundleStore } from '../../store/bundleStore'
 
 interface InstallStep {
   name: string
@@ -14,7 +14,14 @@ interface InstallStep {
 
 export default function SetupPreviewPage() {
   const navigate = useNavigate()
-  const { importedBundle, manifestItems, setupSelections, selectedSetupDockerImages } = useBundleStore()
+  const { 
+    importedBundle, 
+    manifestItems, 
+    setupSelections, 
+    selectedSetupDockerImages,
+    selectedSetupVSCodeProfiles,
+    selectedSetupDatabases,
+  } = useBundleStore()
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
 
   if (!importedBundle) {
@@ -35,14 +42,20 @@ export default function SetupPreviewPage() {
   // Build installation plan based on selections
   const installationSteps: InstallStep[] = []
 
-  if (setupSelections.vscode) {
-    const vscodeItems = manifestItems.filter(item => item.type === 'extension')
-    installationSteps.push({
-      name: 'VS Code Extensions & Profiles',
-      items: vscodeItems.map(item => item.name),
-      estimatedTime: `${Math.ceil(vscodeItems.length / 2)} minutes`,
-      diskSpace: '~150 MB'
-    })
+  if (setupSelections.vscode && selectedSetupVSCodeProfiles.length > 0) {
+    // Filter VS Code items based on selected profiles/extensions
+    const vscodeItems = manifestItems
+      .filter(item => item.type === 'extension')
+      .filter(item => selectedSetupVSCodeProfiles.includes(item.name))
+    
+    if (vscodeItems.length > 0) {
+      installationSteps.push({
+        name: 'VS Code Extensions & Profiles',
+        items: vscodeItems.map(item => item.name),
+        estimatedTime: `${Math.ceil(vscodeItems.length / 2)} minutes`,
+        diskSpace: '~150 MB'
+      })
+    }
   }
 
   if (setupSelections.docker && selectedSetupDockerImages.length > 0) {
@@ -63,18 +76,24 @@ export default function SetupPreviewPage() {
     }
   }
 
-  if (setupSelections.databases) {
-    const dbItems = manifestItems.filter(item => item.type === 'secret')
-    installationSteps.push({
-      name: 'Database Connections',
-      items: dbItems.map(item => item.name),
-      estimatedTime: '2 minutes',
-      requiresManual: true,
-      manualSteps: [
-        'Database credentials will be imported',
-        'You may need to verify network access to remote databases'
-      ]
-    })
+  if (setupSelections.databases && selectedSetupDatabases.length > 0) {
+    // Filter database items based on selected databases
+    const dbItems = manifestItems
+      .filter(item => item.type === 'secret')
+      .filter(item => selectedSetupDatabases.includes(item.name))
+    
+    if (dbItems.length > 0) {
+      installationSteps.push({
+        name: 'Database Connections',
+        items: dbItems.map(item => item.name),
+        estimatedTime: '2 minutes',
+        requiresManual: true,
+        manualSteps: [
+          'Database credentials will be imported',
+          'You may need to verify network access to remote databases'
+        ]
+      })
+    }
   }
 
   if (setupSelections.devtools) {

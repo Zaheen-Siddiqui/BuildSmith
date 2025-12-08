@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
-import { createBundle, downloadBlob } from '../utils/bundleUtils'
+import { useBundleStore } from '../../store/bundleStore'
+import { createBundle, downloadBlob } from '../../utils/bundleUtils'
 
 interface BundleItem {
   name: string

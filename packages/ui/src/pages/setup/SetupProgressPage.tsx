@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle, Clock, Download, Loader, Terminal, X, Maximize2, Minimize2, ChevronDown, ChevronUp } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
-import { mockIPC } from '../services/mockIPC'
-import { IPCEvent, InstallStep, StepState } from '../types/ipc'
+import { useBundleStore } from '../../store/bundleStore'
+import { mockIPC } from '../../services/mockIPC'
+import { IPCEvent, InstallStep, StepState } from '../../types/ipc'
 
 interface LogEntry {
   stepId: string
@@ -15,13 +15,22 @@ interface LogEntry {
 
 export default function SetupProgressPage() {
   const navigate = useNavigate()
-  const { importedBundle, setupSelections, manifestItems, selectedSetupDockerImages } = useBundleStore()
+  const { 
+    importedBundle, 
+    setupSelections, 
+    manifestItems, 
+    selectedSetupDockerImages,
+    selectedSetupVSCodeProfiles,
+    selectedSetupDatabases,
+  } = useBundleStore()
   const [steps, setSteps] = useState<InstallStep[]>([])
   const [allLogs, setAllLogs] = useState<LogEntry[]>([])
   const [currentStepId, setCurrentStepId] = useState<string | null>(null)
   const [showTerminal, setShowTerminal] = useState(false)
   const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
   const [showDockerImages, setShowDockerImages] = useState(false)
+  const [showVSCodeExtensions, setShowVSCodeExtensions] = useState(false)
+  const [showDatabases, setShowDatabases] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
 
   const handleIPCEvent = (event: IPCEvent) => {
@@ -237,29 +246,60 @@ export default function SetupProgressPage() {
 
           {/* Category Progress Bars */}
           <div className="space-y-4 mb-6">
-            {setupSelections.vscode && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 min-w-[200px]">
-                  {getStatusIcon(getCategoryStatus('vscode'))}
-                  <div>
-                    <div className="font-semibold">VS Code Extensions & Profiles</div>
-                    <div className="text-xs text-primary-400">
-                      {getCategoryStats('vscode', 'VS Code', 2, '1 minutes', '~150 MB').count} items • 
-                      {getCategoryStats('vscode', 'VS Code', 2, '1 minutes', '~150 MB').time} • 
-                      {getCategoryStats('vscode', 'VS Code', 2, '1 minutes', '~150 MB').size}
+            {setupSelections.vscode && selectedSetupVSCodeProfiles.length > 0 && (() => {
+              const selectedExtensionCount = selectedSetupVSCodeProfiles.length
+              const estimatedTime = `${Math.ceil(selectedExtensionCount / 2)} minutes`
+              const selectedExtensions = manifestItems
+                .filter(item => item.type === 'extension')
+                .filter(item => selectedSetupVSCodeProfiles.includes(item.name))
+                .map(item => item.name)
+              
+              return (
+              <div className="space-y-2">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 min-w-[200px]">
+                    {getStatusIcon(getCategoryStatus('vscode'))}
+                    <div>
+                      <div className="font-semibold">VS Code Extensions & Profiles</div>
+                      <div className="text-xs text-primary-400">
+                        {selectedExtensionCount} items • 
+                        {estimatedTime} • 
+                        ~150 MB
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex-1">
-                  <div className="w-full bg-primary-800 rounded-full h-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${getCategoryProgress('vscode')}%` }}
-                    />
+                  <div className="flex-1">
+                    <div className="w-full bg-primary-800 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${getCategoryProgress('vscode')}%` }}
+                      />
+                    </div>
                   </div>
+                  <button
+                    onClick={() => setShowVSCodeExtensions(!showVSCodeExtensions)}
+                    className="p-2 hover:bg-primary-700 rounded transition-colors"
+                    title={showVSCodeExtensions ? 'Hide extensions' : 'Show extensions'}
+                  >
+                    {showVSCodeExtensions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
                 </div>
+                {showVSCodeExtensions && (
+                  <div className="ml-14 bg-primary-800/50 rounded p-3 border border-primary-700">
+                    <div className="text-sm font-semibold mb-2 text-primary-300">Selected Extensions:</div>
+                    <div className="space-y-1">
+                      {selectedExtensions.map((extension, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="w-3 h-3 text-green-400" />
+                          <span className="text-primary-200">{extension}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+              )
+            })()}
 
             {setupSelections.docker && selectedSetupDockerImages.length > 0 && (() => {
               const selectedDockerCount = selectedSetupDockerImages.length
@@ -322,7 +362,17 @@ export default function SetupProgressPage() {
                 <div className="flex items-center gap-2 min-w-[200px]">
                   {getStatusIcon(getCategoryStatus('databases'))}
                   <div>
-                    <div className="font-semibold">Database Connections</div>
+                    <div className="font-semibold flex items-center gap-2">
+                      Database Connections
+                      {selectedSetupDatabases.length > 0 && (
+                        <button
+                          onClick={() => setShowDatabases(!showDatabases)}
+                          className="text-accent-400 hover:text-accent-300 transition-colors"
+                        >
+                          {showDatabases ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </div>
                     <div className="text-xs text-primary-400">
                       {getCategoryStats('databases', 'Databases', 1, '2 minutes').count} items • 
                       {getCategoryStats('databases', 'Databases', 1, '2 minutes').time}
@@ -340,6 +390,28 @@ export default function SetupProgressPage() {
                 </div>
               </div>
             )}
+            {setupSelections.databases && showDatabases && selectedSetupDatabases.length > 0 && (() => {
+              const selectedDbNames = manifestItems
+                .filter(item => item.type === 'secret')
+                .filter(item => selectedSetupDatabases.includes(item.name))
+                .map(item => item.name)
+              
+              return (
+              <div className="ml-8 mb-4">
+                <div className="bg-black/20 rounded p-3">
+                  <h4 className="text-sm font-semibold mb-2 text-primary-300">Selected Database Connections:</h4>
+                  <div className="space-y-1">
+                    {selectedDbNames.map((db, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="w-3 h-3 text-green-400" />
+                        <span className="text-primary-200">{db}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              )
+            })()}
 
             {setupSelections.devtools && (
               <div className="flex items-center gap-4">

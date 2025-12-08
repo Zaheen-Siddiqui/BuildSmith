@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Play, Lock, Eye, EyeOff } from 'lucide-react'
-import { useBundleStore, ManifestItem } from '../store/bundleStore'
+import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 
 export default function ScanPage() {
   const navigate = useNavigate()

@@ -116,6 +116,14 @@ export interface BundleState {
   selectedSetupDockerImages: string[] // Array of image IDs that user selected
   setSelectedSetupDockerImages: (imageIds: string[]) => void
   
+  // Selected VS Code profiles for setup (subset of manifest items)
+  selectedSetupVSCodeProfiles: string[] // Array of profile/extension names that user selected
+  setSelectedSetupVSCodeProfiles: (profileNames: string[]) => void
+  
+  // Selected databases for setup (subset of manifest items)
+  selectedSetupDatabases: string[] // Array of database names that user selected
+  setSelectedSetupDatabases: (dbNames: string[]) => void
+  
   // Actions
   resetScan: () => void
   resetBundle: () => void
@@ -227,6 +235,14 @@ export const useBundleStore = create<BundleState>()(
       // Selected docker images for setup
       selectedSetupDockerImages: [],
       setSelectedSetupDockerImages: (imageIds) => set({ selectedSetupDockerImages: imageIds }),
+
+      // Selected VS Code profiles for setup
+      selectedSetupVSCodeProfiles: [],
+      setSelectedSetupVSCodeProfiles: (profileNames) => set({ selectedSetupVSCodeProfiles: profileNames }),
+
+      // Selected databases for setup
+      selectedSetupDatabases: [],
+      setSelectedSetupDatabases: (dbNames) => set({ selectedSetupDatabases: dbNames }),
 
       // Actions
       resetScan: () =>
