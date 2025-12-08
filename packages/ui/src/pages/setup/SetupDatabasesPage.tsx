@@ -91,7 +91,7 @@ export default function SetupDatabasesPage() {
   const selectedCount = databases.filter(db => db.selected).length
   const allSelected = databases.length > 0 && databases.every(db => db.selected)
 
-  const getDbIcon = (type: DatabaseData['type']) => {
+  const getDbIcon = () => {
     return <Database className="w-5 h-5 text-accent-400" />
   }
 
@@ -203,7 +203,7 @@ export default function SetupDatabasesPage() {
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          {getDbIcon(db.type)}
+                          {getDbIcon()}
                           <span className="font-medium">{db.name}</span>
                           <span className={`text-xs px-2 py-0.5 rounded ${getDbColor(db.type)} bg-white/10`}>
                             {db.type.toUpperCase()}

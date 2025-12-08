@@ -42,7 +42,7 @@ export default function InstallerFlowPage() {
     
     switch (event.type) {
       case 'status':
-        updateStepStatus(event.stepId, event.state, event.message)
+        updateStepStatus(event.stepId, event.state)
         if (event.state === 'running') {
           setCurrentStepId(event.stepId)
         }
@@ -143,7 +143,7 @@ export default function InstallerFlowPage() {
     return stepsList
   }
 
-  const updateStepStatus = (stepId: string, state: StepState, message: string) => {
+  const updateStepStatus = (stepId: string, state: StepState) => {
     setSteps(prev => prev.map(step => 
       step.id === stepId 
         ? { ...step, status: state }

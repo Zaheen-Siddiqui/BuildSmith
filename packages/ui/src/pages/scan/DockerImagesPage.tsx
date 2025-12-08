@@ -48,9 +48,11 @@ export default function DockerImagesPage() {
     )
     // Update store
     setSelectedDockerImages(
-      images.map(img =>
-        img.id === id ? { ...img, selected: !img.selected } : img
-      )
+      images.map(img => ({
+        ...img,
+        size: img.size || 'Unknown',
+        selected: img.id === id ? !img.selected : img.selected
+      }))
     )
   }
 
@@ -64,12 +66,12 @@ export default function DockerImagesPage() {
     }
     const updatedImages = [...images, imageWithId]
     setImages(updatedImages)
-    setSelectedDockerImages(updatedImages)
+    setSelectedDockerImages(updatedImages.map(img => ({ ...img, size: img.size || 'Unknown' })))
   }
 
   const handleSaveAndContinue = () => {
     // Save current images to store
-    setSelectedDockerImages(images)
+    setSelectedDockerImages(images.map(img => ({ ...img, size: img.size || 'Unknown' })))
     
     // Mark docker config as complete
     setScanProgress({ docker: true })

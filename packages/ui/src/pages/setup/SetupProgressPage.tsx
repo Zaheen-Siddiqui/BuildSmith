@@ -72,7 +72,17 @@ export default function SetupProgressPage() {
     setSteps(prevSteps =>
       prevSteps.map(step =>
         step.id === stepId
-          ? { ...step, status: state, logs: [...step.logs, message] }
+          ? { 
+              ...step, 
+              status: state, 
+              logs: [...step.logs, {
+                type: 'log' as const,
+                stepId,
+                level: 'info' as const,
+                text: message,
+                timestamp: new Date().toISOString()
+              }] 
+            }
           : step
       )
     )
@@ -83,7 +93,16 @@ export default function SetupProgressPage() {
     setSteps(prevSteps =>
       prevSteps.map(step =>
         step.id === stepId
-          ? { ...step, logs: [...step.logs, `Progress: ${progress}%`] }
+          ? { 
+              ...step, 
+              logs: [...step.logs, {
+                type: 'log' as const,
+                stepId,
+                level: 'info' as const,
+                text: `Progress: ${progress}%`,
+                timestamp: new Date().toISOString()
+              }] 
+            }
           : step
       )
     )
@@ -490,8 +509,8 @@ export default function SetupProgressPage() {
                   <p className="text-sm text-primary-300">
                     {(() => {
                       if (step.logs.length === 0) return 'Waiting...';
-                      const lastLog = step.logs.at(-1);
-                      return typeof lastLog === 'string' ? lastLog : 'Processing...';
+                      const lastLog = step.logs[step.logs.length - 1];
+                      return lastLog?.text || 'Processing...';
                     })()}
                   </p>
                 </div>

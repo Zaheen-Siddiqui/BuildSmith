@@ -27,7 +27,7 @@ describe('BundleStore', () => {
     })
 
     it('should update scan settings', () => {
-      const { setScanSettings, scanSettings } = useBundleStore.getState()
+      const { setScanSettings } = useBundleStore.getState()
       
       setScanSettings({ vscode: true, docker: true })
       
@@ -76,7 +76,7 @@ describe('BundleStore', () => {
 
   describe('Manifest Items', () => {
     it('should add manifest items', () => {
-      const { addManifestItem, manifestItems } = useBundleStore.getState()
+      const { addManifestItem } = useBundleStore.getState()
       
       const newItem = {
         name: 'Git',
@@ -116,7 +116,7 @@ describe('BundleStore', () => {
       
       removeManifestItem(0)
       
-      const { manifestItems } = useBundleStore.getState()
+      const manifestItems = useBundleStore.getState().manifestItems
       expect(manifestItems).toHaveLength(1)
       expect(manifestItems[0].name).toBe('Node.js')
     })
