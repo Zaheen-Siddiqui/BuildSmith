@@ -14,7 +14,13 @@ interface InstallStep {
 
 export default function SetupPreviewPage() {
   const navigate = useNavigate()
-  const { importedBundle, manifestItems, setupSelections, selectedSetupDockerImages } = useBundleStore()
+  const { 
+    importedBundle, 
+    manifestItems, 
+    setupSelections, 
+    selectedSetupDockerImages,
+    selectedSetupVSCodeProfiles,
+  } = useBundleStore()
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
 
   if (!importedBundle) {
@@ -35,14 +41,20 @@ export default function SetupPreviewPage() {
   // Build installation plan based on selections
   const installationSteps: InstallStep[] = []
 
-  if (setupSelections.vscode) {
-    const vscodeItems = manifestItems.filter(item => item.type === 'extension')
-    installationSteps.push({
-      name: 'VS Code Extensions & Profiles',
-      items: vscodeItems.map(item => item.name),
-      estimatedTime: `${Math.ceil(vscodeItems.length / 2)} minutes`,
-      diskSpace: '~150 MB'
-    })
+  if (setupSelections.vscode && selectedSetupVSCodeProfiles.length > 0) {
+    // Filter VS Code items based on selected profiles/extensions
+    const vscodeItems = manifestItems
+      .filter(item => item.type === 'extension')
+      .filter(item => selectedSetupVSCodeProfiles.includes(item.name))
+    
+    if (vscodeItems.length > 0) {
+      installationSteps.push({
+        name: 'VS Code Extensions & Profiles',
+        items: vscodeItems.map(item => item.name),
+        estimatedTime: `${Math.ceil(vscodeItems.length / 2)} minutes`,
+        diskSpace: '~150 MB'
+      })
+    }
   }
 
   if (setupSelections.docker && selectedSetupDockerImages.length > 0) {

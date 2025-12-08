@@ -63,8 +63,13 @@ export default function SetupDockerPage() {
       setSetupSelections({ ...setupSelections, docker: false })
     }
 
-    // Navigate to preview
-    navigate('/setup-preview')
+    // Navigate to next page based on setup selections
+    // Order: vscode -> docker -> databases -> preview
+    if (setupSelections.databases && manifestItems.some(item => item.type === 'secret')) {
+      navigate('/setup-databases')
+    } else {
+      navigate('/setup-preview')
+    }
   }
 
   if (!importedBundle) return null

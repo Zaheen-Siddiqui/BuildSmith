@@ -14,8 +14,15 @@ interface InstallationResult {
 
 export default function SetupCompletePage() {
   const navigate = useNavigate()
-  const { importedBundle, manifestItems, setupSelections, selectedSetupDockerImages } = useBundleStore()
+  const { 
+    importedBundle, 
+    manifestItems, 
+    setupSelections, 
+    selectedSetupDockerImages,
+    selectedSetupVSCodeProfiles,
+  } = useBundleStore()
   const [showDockerImages, setShowDockerImages] = useState(false)
+  const [showVSCodeExtensions, setShowVSCodeExtensions] = useState(false)
 
   if (!importedBundle) {
     navigate('/import')
@@ -25,13 +32,16 @@ export default function SetupCompletePage() {
   // Simulate installation results
   const results: InstallationResult[] = []
 
-  if (setupSelections.vscode) {
-    const vscodeItems = manifestItems.filter(item => item.type === 'extension')
+  if (setupSelections.vscode && selectedSetupVSCodeProfiles.length > 0) {
+    const selectedExtensions = manifestItems
+      .filter(item => item.type === 'extension')
+      .filter(item => selectedSetupVSCodeProfiles.includes(item.name))
+    
     results.push({
       category: 'VS Code Extensions',
       status: 'success',
-      itemsInstalled: vscodeItems.length,
-      totalItems: vscodeItems.length,
+      itemsInstalled: selectedExtensions.length,
+      totalItems: selectedExtensions.length,
       message: 'All extensions installed successfully'
     })
   }
@@ -190,9 +200,16 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
           <div className="space-y-3">
             {results.map((result, index) => {
               const isDockerCategory = result.category === 'Docker Images'
+              const isVSCodeCategory = result.category === 'VS Code Extensions'
+              
               const selectedDockerImageNames = isDockerCategory ? manifestItems
                 .filter(item => item.type === 'image')
                 .filter((_, idx) => selectedSetupDockerImages.includes(`docker-${idx}`))
+                .map(item => item.name) : []
+              
+              const selectedVSCodeExtensionNames = isVSCodeCategory ? manifestItems
+                .filter(item => item.type === 'extension')
+                .filter(item => selectedSetupVSCodeProfiles.includes(item.name))
                 .map(item => item.name) : []
               
               return (
@@ -214,6 +231,15 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
                         <div className="font-semibold">
                           {result.itemsInstalled}/{result.totalItems}
                         </div>
+                        {isVSCodeCategory && (
+                          <button
+                            onClick={() => setShowVSCodeExtensions(!showVSCodeExtensions)}
+                            className="p-1 hover:bg-primary-700 rounded transition-colors"
+                            title={showVSCodeExtensions ? 'Hide extensions' : 'Show extensions'}
+                          >
+                            {showVSCodeExtensions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        )}
                         {isDockerCategory && (
                           <button
                             onClick={() => setShowDockerImages(!showDockerImages)}
@@ -225,6 +251,20 @@ ${r.manualSteps ? `  Manual steps:\n${r.manualSteps.map(s => `    - ${s}`).join(
                         )}
                       </div>
                     </div>
+
+                    {isVSCodeCategory && showVSCodeExtensions && (
+                      <div className="bg-black/20 rounded p-3 mb-3">
+                        <h4 className="text-sm font-semibold mb-2 text-primary-300">Installed Extensions:</h4>
+                        <div className="space-y-1">
+                          {selectedVSCodeExtensionNames.map((extension, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <CheckCircle className="w-3 h-3 text-green-400" />
+                              <span className="text-primary-200">{extension}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {isDockerCategory && showDockerImages && (
                       <div className="bg-black/20 rounded p-3 mb-3">
