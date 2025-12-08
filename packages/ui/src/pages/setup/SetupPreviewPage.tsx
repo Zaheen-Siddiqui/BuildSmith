@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, AlertTriangle, Clock, HardDrive, Play, ChevronDown, ChevronRight } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
+import { useBundleStore } from '../../store/bundleStore'
 
 interface InstallStep {
   name: string

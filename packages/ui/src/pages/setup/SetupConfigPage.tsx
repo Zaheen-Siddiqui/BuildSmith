@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Package, Code, Database, HardDrive, Wrench, CheckCircle, Settings } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
+import { useBundleStore } from '../../store/bundleStore'
 
 export default function SetupConfigPage() {
   const navigate = useNavigate()

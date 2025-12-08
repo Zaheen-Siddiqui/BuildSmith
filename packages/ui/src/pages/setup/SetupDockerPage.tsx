@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Package } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
-import DockerImageSelector, { DockerImageData } from '../components/DockerImageSelector'
+import { useBundleStore } from '../../store/bundleStore'
+import DockerImageSelector, { DockerImageData } from '../../components/DockerImageSelector'
 
 export default function SetupDockerPage() {
   const navigate = useNavigate()

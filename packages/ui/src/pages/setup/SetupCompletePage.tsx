@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle, AlertTriangle, Download, Home, FileText, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
+import { useBundleStore } from '../../store/bundleStore'
 
 interface InstallationResult {
   category: string

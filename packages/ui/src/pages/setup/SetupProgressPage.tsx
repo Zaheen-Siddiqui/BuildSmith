@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle, Clock, Download, Loader, Terminal, X, Maximize2, Minimize2, ChevronDown, ChevronUp } from 'lucide-react'
-import { useBundleStore } from '../store/bundleStore'
-import { mockIPC } from '../services/mockIPC'
-import { IPCEvent, InstallStep, StepState } from '../types/ipc'
+import { useBundleStore } from '../../store/bundleStore'
+import { mockIPC } from '../../services/mockIPC'
+import { IPCEvent, InstallStep, StepState } from '../../types/ipc'
 
 interface LogEntry {
   stepId: string

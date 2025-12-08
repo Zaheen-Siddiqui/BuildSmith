@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { useBundleStore, ManifestItem } from '../store/bundleStore'
+import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 
 export default function DatabaseConnectionsPage() {
   const navigate = useNavigate()
