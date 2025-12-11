@@ -21,6 +21,11 @@ export interface ElectronAPI {
   abort: () => Promise<{ success: boolean }>
 
   /**
+   * Select a bundle file using native dialog
+   */
+  selectBundle: () => Promise<{ success: boolean; filePath?: string; fileName?: string }>
+
+  /**
    * Check if running in development mode
    */
   isDev: () => boolean

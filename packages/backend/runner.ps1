@@ -62,6 +62,9 @@ while ($true) {
             "startSetup" {
                 Emit-Log -StepId "runner" -Level "info" -Text "Starting setup operation"
                 
+                # Clear any previous abort flag
+                $global:ABORT_REQUESTED = $false
+                
                 # Convert options from PSCustomObject to hashtable
                 $options = @{}
                 if ($command.options) {

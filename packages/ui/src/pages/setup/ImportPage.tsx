@@ -5,7 +5,7 @@ import { useBundleStore } from '../../store/bundleStore'
 
 export default function ImportPage() {
   const navigate = useNavigate()
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFile, setSelectedFile] = useState<{ name: string; path: string; size: number; lastModified: number } | null>(null)
   const [showPassphrase, setShowPassphrase] = useState(false)
   const [passphrase, setPassphrase] = useState('')
   const [decrypting, setDecrypting] = useState(false)
@@ -13,16 +13,30 @@ export default function ImportPage() {
   
   const { setImportedBundle, setManifestItems, setScanSettings } = useBundleStore()
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      // Validate file type
-      if (!file.name.endsWith('.buildsmith') && !file.name.endsWith('.zip')) {
-        setError('Invalid file type. Please select a .buildsmith or .zip file')
-        return
+  const handleFileSelect = async () => {
+    setError('')
+    
+    // Use Electron's native file dialog
+    if (window.electronAPI?.selectBundle) {
+      const result = await window.electronAPI.selectBundle()
+      
+      if (result.success && result.filePath) {
+        // Validate file type
+        if (!result.fileName?.endsWith('.buildsmith') && !result.fileName?.endsWith('.zip')) {
+          setError('Invalid file type. Please select a .buildsmith or .zip file')
+          return
+        }
+        
+        // Create a file-like object with the info we need
+        setSelectedFile({
+          name: result.fileName || '',
+          path: result.filePath,
+          size: 0, // We could get this via fs if needed
+          lastModified: Date.now()
+        })
       }
-      setSelectedFile(file)
-      setError('')
+    } else {
+      setError('File selection not available. Please ensure you are running in Electron.')
     }
   }
 
@@ -40,6 +54,7 @@ export default function ImportPage() {
       const bundleMetadata = {
         id: Date.now().toString(),
         name: selectedFile.name.replace(/\.(buildsmith|zip)$/, ''),
+        path: selectedFile.path, // Store full path from Electron dialog
         createdAt: new Date(selectedFile.lastModified).toISOString(),
         description: 'Imported development environment bundle',
         encrypted: selectedFile.name.includes('encrypted') || passphrase.length > 0,
@@ -112,22 +127,15 @@ export default function ImportPage() {
             Select Bundle File
           </h2>
           
-          <div className="border-2 border-dashed border-white/30 rounded-lg p-8 text-center hover:border-accent-500 transition-colors">
-            <input
-              type="file"
-              id="bundle-file"
-              accept=".buildsmith,.zip"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <label htmlFor="bundle-file" className="cursor-pointer">
+          <div className="border-2 border-dashed border-white/30 rounded-lg p-8 text-center hover:border-accent-500 transition-colors cursor-pointer" onClick={handleFileSelect}>
+            <div className="w-full">
               <div className="flex flex-col items-center">
                 {selectedFile ? (
                   <>
                     <FileCheck className="w-16 h-16 text-accent-400 mb-4" />
                     <h3 className="text-xl font-semibold mb-2">{selectedFile.name}</h3>
                     <p className="text-primary-300 text-sm">
-                      Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      Path: {selectedFile.path}
                     </p>
                     <p className="text-primary-400 text-xs mt-1">
                       Last modified: {new Date(selectedFile.lastModified).toLocaleDateString()}
@@ -135,6 +143,7 @@ export default function ImportPage() {
                     <button
                       onClick={(e) => {
                         e.preventDefault()
+                        e.stopPropagation()
                         setSelectedFile(null)
                         setPassphrase('')
                         setError('')
@@ -147,14 +156,14 @@ export default function ImportPage() {
                 ) : (
                   <>
                     <Upload className="w-16 h-16 text-primary-400 mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">Drop your bundle file here</h3>
+                    <h3 className="text-xl font-semibold mb-2">Click to select bundle file</h3>
                     <p className="text-primary-300 text-sm">
-                      or click to browse (.buildsmith or .zip)
+                      (.buildsmith or .zip)
                     </p>
                   </>
                 )}
               </div>
-            </label>
+            </div>
           </div>
 
           {error && (

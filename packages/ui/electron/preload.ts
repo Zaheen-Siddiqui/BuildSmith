@@ -33,6 +33,13 @@ const electronAPI = {
   },
 
   /**
+   * Select a bundle file using native dialog
+   */
+  selectBundle: (): Promise<{ success: boolean; filePath?: string; fileName?: string }> => {
+    return ipcRenderer.invoke('dialog:selectBundle')
+  },
+
+  /**
    * Development: Check if running in dev mode
    */
   isDev: (): boolean => {

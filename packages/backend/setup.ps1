@@ -18,45 +18,43 @@ $WarningPreference = "SilentlyContinue"
 
 $ErrorActionPreference = "Continue"
 
-# ============================================================================
-# Stub Functions - Simulate real operations with delays
-# ============================================================================
-
+# Define helper functions for operations not yet in modules
 function Install-VSCodeExtensions {
-    param([array]$Extensions)
+    param([array]$Extensions, [string]$StepId = "install-vscode-extensions")
     
-    Emit-Status -StepId "install-vscode-extensions" -State "running" -Message "Installing VS Code extensions..."
-    Emit-Log -StepId "install-vscode-extensions" -Level "info" -Text "Installing $($Extensions.Count) extensions"
+    # For now, use simplified version - full implementation in vscode.psm1
+    Emit-Status -StepId $StepId -State "running" -Message "Installing VS Code extensions..."
+    Emit-Log -StepId $StepId -Level "info" -Text "Installing $($Extensions.Count) extensions"
     
     for ($i = 0; $i -lt $Extensions.Count; $i++) {
         if (Test-AbortRequested) { return $false }
         
         $ext = $Extensions[$i]
-        Emit-Log -StepId "install-vscode-extensions" -Level "info" -Text "Installing: $ext"
-        Emit-Progress -StepId "install-vscode-extensions" -Current ($i + 1) -Total $Extensions.Count -Unit "extensions"
+        Emit-Log -StepId $StepId -Level "info" -Text "Installing: $ext"
+        Emit-Progress -StepId $StepId -Current ($i + 1) -Total $Extensions.Count -Unit "extensions"
         
-        Start-Sleep -Milliseconds 800  # Simulate installation time
+        Start-Sleep -Milliseconds 500  # Simulate installation
     }
     
-    Emit-Result -StepId "install-vscode-extensions" -State "success" -Duration 5
+    Emit-Result -StepId $StepId -State "success" -Duration 5
     return $true
 }
 
 function Install-DockerImage {
     param([string]$ImageName)
     
-    Emit-Status -StepId "pull-docker-$ImageName" -State "running" -Message "Pulling Docker image: $ImageName"
-    Emit-Log -StepId "pull-docker-$ImageName" -Level "info" -Text "Downloading layers for $ImageName"
+    $stepId = "pull-docker-$ImageName"
+    Emit-Status -StepId $stepId -State "running" -Message "Processing Docker image: $ImageName"
+    Emit-Log -StepId $stepId -Level "info" -Text "Image: $ImageName"
     
-    # Simulate layer downloads with progress
+    # Simulate download progress
     for ($i = 1; $i -le 5; $i++) {
         if (Test-AbortRequested) { return $false }
-        
-        Emit-Progress -StepId "pull-docker-$ImageName" -Current ($i * 20) -Total 100 -Unit "%"
-        Start-Sleep -Milliseconds 600
+        Emit-Progress -StepId $stepId -Current ($i * 20) -Total 100 -Unit "%"
+        Start-Sleep -Milliseconds 400
     }
     
-    Emit-Result -StepId "pull-docker-$ImageName" -State "success" -Duration 3
+    Emit-Result -StepId $stepId -State "success" -Duration 3
     return $true
 }
 
@@ -64,17 +62,16 @@ function Restore-DatabaseConnections {
     param([string]$ConnectionsFile)
     
     Emit-Status -StepId "restore-db-connections" -State "running" -Message "Restoring database connections..."
-    Emit-Log -StepId "restore-db-connections" -Level "info" -Text "Reading connections from $ConnectionsFile"
+    Emit-Log -StepId "restore-db-connections" -Level "info" -Text "Reading: $ConnectionsFile"
     
-    Start-Sleep -Milliseconds 1000
+    Start-Sleep -Milliseconds 800
     
     Emit-Result -StepId "restore-db-connections" -State "success" -Duration 1
     return $true
 }
 
-function Add-ToPath {
+function Add-ToPathLocal {
     param([string]$Directory)
-    
     Emit-Log -StepId "update-path" -Level "info" -Text "Adding to PATH: $Directory"
     Start-Sleep -Milliseconds 200
 }
@@ -84,6 +81,8 @@ $skippedSteps = @()
 
 try {
     Emit-Log -StepId "setup" -Level "info" -Text "Starting setup from bundle: $BundlePath"
+    Emit-Log -StepId "setup" -Level "debug" -Text "Selected items: $($SelectedItems -join ', ')"
+    Emit-Log -StepId "setup" -Level "debug" -Text "Selected items count: $($SelectedItems.Count)"
     
     # Extract bundle
     Emit-Status -StepId "extract-bundle" -State "running" -Message "Extracting bundle..."
@@ -103,20 +102,34 @@ try {
     Emit-Log -StepId "setup" -Level "info" -Text "Created: $($manifest.meta.createdAt)"
     
     # Install VS Code extensions
+    Emit-Log -StepId "setup" -Level "debug" -Text "Checking VS Code: contains=$($SelectedItems -contains 'vscode'), profile=$($manifest.vscodeProfile)"
     if ($SelectedItems -contains "vscode" -and $manifest.vscodeProfile) {
+        Emit-Log -StepId "setup" -Level "info" -Text "Processing VS Code profile..."
         $vscodeFile = Join-Path $extractDir $manifest.vscodeProfile
-        $vscodeData = Get-Content $vscodeFile | ConvertFrom-Json
+        Emit-Log -StepId "setup" -Level "debug" -Text "VS Code profile path: $vscodeFile"
         
-        if ($vscodeData.extensions -and $vscodeData.extensions.Count -gt 0) {
-            $success = Install-VSCodeExtensions -Extensions $vscodeData.extensions
-            if (-not $success) {
-                $failedSteps += "install-vscode-extensions"
+        if (Test-Path $vscodeFile) {
+            $vscodeData = Get-Content $vscodeFile | ConvertFrom-Json
+            
+            if ($vscodeData.extensions -and $vscodeData.extensions.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Found $($vscodeData.extensions.Count) extensions to install"
+                
+                # Call the installation function
+                # Don't capture output so JSON events flow to stdout
+                Install-VSCodeExtensions -Extensions $vscodeData.extensions
+                # TODO: Check for errors instead of capturing return value
+            } else {
+                Emit-Log -StepId "setup" -Level "warn" -Text "No extensions found in profile"
             }
+        } else {
+            Emit-Log -StepId "setup" -Level "error" -Text "VS Code profile file not found: $vscodeFile"
         }
     }
     
     # Restore Docker images
+    Emit-Log -StepId "setup" -Level "debug" -Text "Checking Docker: contains=$($SelectedItems -contains 'docker'), images=$($manifest.dockerImages -ne $null)"
     if ($SelectedItems -contains "docker" -and $manifest.dockerImages) {
+        Emit-Log -StepId "setup" -Level "info" -Text "Processing $($manifest.dockerImages.Count) Docker images..."
         foreach ($img in $manifest.dockerImages) {
             if (Test-AbortRequested) {
                 Emit-Log -StepId "setup" -Level "warn" -Text "Setup aborted by user"
@@ -124,10 +137,8 @@ try {
             }
             
             # In real implementation, check if we should pull or load from tar
-            $success = Install-DockerImage -ImageName $img.image
-            if (-not $success) {
-                $failedSteps += "pull-docker-$($img.image)"
-            }
+            Install-DockerImage -ImageName $img.image
+            # TODO: Check for errors instead of capturing return value
         }
     }
     
@@ -146,7 +157,7 @@ try {
     if ($SelectedItems -contains "environment" -and $manifest.pathEntries) {
         foreach ($pathEntry in $manifest.pathEntries) {
             if (Test-Path $pathEntry) {
-                Add-ToPath -Directory $pathEntry
+                Add-ToPathLocal -Directory $pathEntry
             }
         }
     }

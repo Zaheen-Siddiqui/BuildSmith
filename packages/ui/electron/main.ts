@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'node:path'
 import { spawn, ChildProcess } from 'node:child_process'
 
@@ -87,9 +87,10 @@ function setupIPCHandlers() {
       } else {
         throw new Error('Backend process not available')
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error handling command:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: errorMessage }
     }
   })
 
@@ -100,6 +101,27 @@ function setupIPCHandlers() {
       backendProcess.stdin.write(JSON.stringify({ cmd: 'abort' }) + '\n')
     }
     return { success: true }
+  })
+
+  // Handle file selection dialog
+  ipcMain.handle('dialog:selectBundle', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+        { name: 'Bundle Files', extensions: ['zip', 'buildsmith'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false }
+    }
+    
+    return { 
+      success: true, 
+      filePath: result.filePaths[0],
+      fileName: path.basename(result.filePaths[0])
+    }
   })
 }
 
