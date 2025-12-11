@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle, Clock, Download, Loader, Terminal, X, Maximize2, Minimize2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useBundleStore } from '../../store/bundleStore'
-import { mockIPC } from '../../services/mockIPC'
+import { ipc } from '../../services'
 import { IPCEvent, InstallStep, StepState } from '../../types/ipc'
 
 interface LogEntry {
@@ -119,14 +119,14 @@ export default function SetupProgressPage() {
     }
 
     // Subscribe to IPC events
-    mockIPC.onEvent(handleIPCEvent)
+    ipc.onEvent(handleIPCEvent)
 
     // Start installation
     startInstallation()
 
     // Cleanup on unmount
     return () => {
-      mockIPC.abort()
+      ipc.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [importedBundle, navigate])
@@ -154,7 +154,7 @@ export default function SetupProgressPage() {
       .map(item => item.name)
 
     try {
-      await mockIPC.startSetup({
+      await ipc.startSetup({
         cmd: 'startSetup',
         bundlePath: importedBundle?.name || 'bundle.zip',
         selectedItems,
