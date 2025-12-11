@@ -127,7 +127,7 @@ try {
     }
     
     # Restore Docker images
-    Emit-Log -StepId "setup" -Level "debug" -Text "Checking Docker: contains=$($SelectedItems -contains 'docker'), images=$($manifest.dockerImages -ne $null)"
+    Emit-Log -StepId "setup" -Level "debug" -Text "Checking Docker: contains=$($SelectedItems -contains 'docker'), images=$($null -ne $manifest.dockerImages)"
     if ($SelectedItems -contains "docker" -and $manifest.dockerImages) {
         Emit-Log -StepId "setup" -Level "info" -Text "Processing $($manifest.dockerImages.Count) Docker images..."
         foreach ($img in $manifest.dockerImages) {
