@@ -31,7 +31,7 @@ export default function DockerImagesPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        mockIPC.onEvent((event) => {
+        ipc.onEvent((event) => {
           if (event.type === 'result' && event.stepId === 'scan-docker' && event.state === 'success') {
             const data = event.data as DockerScanResult
             
@@ -51,7 +51,7 @@ export default function DockerImagesPage() {
         })
         
         // Start the scan
-        await mockIPC.scanDocker()
+        await ipc.scanDocker()
       }
 
       performScan()

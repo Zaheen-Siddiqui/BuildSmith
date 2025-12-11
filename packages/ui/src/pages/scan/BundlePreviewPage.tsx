@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save, Loader2 } from 'lucide-react'
 import { useBundleStore } from '../../store/bundleStore'
 import { createBundle, downloadBlob } from '../../utils/bundleUtils'
-import { mockIPC } from '../../services/mockIPC'
+import { ipc } from '../../services'
 import { BundleCreatedResult } from '../../types/ipc'
 
 interface BundleItem {
@@ -41,7 +41,7 @@ export default function BundlePreviewPage() {
       setIsCreatingBundle(true)
       
       // Subscribe to IPC events
-      mockIPC.onEvent((event) => {
+      ipc.onEvent((event) => {
         if (event.type === 'result' && event.stepId === 'create-bundle' && event.state === 'success') {
           const data = event.data as BundleCreatedResult
           
@@ -60,7 +60,7 @@ export default function BundlePreviewPage() {
       })
       
       // Start bundle creation
-      await mockIPC.createBundle({
+      await ipc.createBundle({
         includeSecrets: scanSettings.includeSecrets,
         encryptionPassphrase: scanSettings.encryptionPassphrase,
         devtools: scanSettings.devtools,

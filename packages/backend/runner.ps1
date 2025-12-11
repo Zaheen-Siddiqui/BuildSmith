@@ -98,6 +98,70 @@ while ($true) {
                 Emit-Log -StepId $command.stepId -Level "info" -Text "Retrying..."
             }
             
+            "scanVSCode" {
+                Emit-Log -StepId "scan-vscode" -Level "info" -Text "Scanning VS Code profiles and extensions"
+                
+                # Load VS Code scanner module
+                Import-Module "$PSScriptRoot\modules\vscode.psm1" -Force
+                
+                # Run VS Code scan
+                $result = Get-VSCodeProfiles
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-vscode" -State "success" -Data $result
+            }
+            
+            "scanDocker" {
+                Emit-Log -StepId "scan-docker" -Level "info" -Text "Scanning Docker images"
+                
+                # Load Docker scanner module
+                Import-Module "$PSScriptRoot\modules\docker.psm1" -Force
+                
+                # Run Docker scan
+                $result = Get-DockerImages
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-docker" -State "success" -Data $result
+            }
+            
+            "scanDatabase" {
+                Emit-Log -StepId "scan-database" -Level "info" -Text "Scanning database connections"
+                
+                # Load Database scanner module  
+                Import-Module "$PSScriptRoot\modules\db.psm1" -Force
+                
+                # Run database scan
+                $result = Get-DatabaseConnections
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-database" -State "success" -Data $result
+            }
+            
+            "createBundle" {
+                Emit-Log -StepId "create-bundle" -Level "info" -Text "Creating bundle from selected items"
+                
+                # Load bundle creation module
+                Import-Module "$PSScriptRoot\modules\Bundle-Creator.psm1" -Force
+                
+                # Convert command properties to hashtable
+                $options = @{
+                    selectedVSCodeProfiles = $command.selectedVSCodeProfiles
+                    selectedDockerImages = $command.selectedDockerImages
+                    selectedDatabases = $command.selectedDatabases
+                    includeDevOps = $command.includeDevOps
+                    includeEnvironment = $command.includeEnvironment
+                    includePackages = $command.includePackages
+                    includeSecrets = $command.includeSecrets
+                    encryptionPassphrase = $command.encryptionPassphrase
+                }
+                
+                # Create bundle
+                $result = New-Bundle @options
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "create-bundle" -State "success" -Data $result
+            }
+            
             "checkForUpdates" {
                 Emit-Log -StepId "runner" -Level "info" -Text "Checking for updates (channel: $($command.channel))"
                 # Stub - real implementation would check GitHub releases
