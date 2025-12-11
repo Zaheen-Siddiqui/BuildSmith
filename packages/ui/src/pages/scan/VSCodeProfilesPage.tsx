@@ -1,10 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Code, CheckCircle, Package } from 'lucide-react'
+import { ArrowLeft, Code, CheckCircle, Package, Loader2 } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
+import { mockIPC } from '../../services/mockIPC'
+import { VSCodeScanResult } from '../../types/ipc'
 
 export default function VSCodeProfilesPage() {
   const navigate = useNavigate()
+  const [isScanning, setIsScanning] = useState(false)
+  const [scanComplete, setScanComplete] = useState(false)
 
   // Get from store
   const { 
@@ -19,35 +23,39 @@ export default function VSCodeProfilesPage() {
     setCurrentBundle,
   } = useBundleStore()
 
-  // Initialize profiles from store or use mock data
+  // Trigger scan on mount
   useEffect(() => {
-    if (selectedVSCodeProfiles.length === 0) {
-      // Initialize with mock data
-      setSelectedVSCodeProfiles([
-        {
-          id: 'default',
-          name: 'Default Profile',
-          extensions: ['ESLint', 'Prettier', 'GitLens', 'Python', 'Docker'],
-          settings: {},
-          selected: false,
-        },
-        {
-          id: 'web-dev',
-          name: 'Web Development',
-          extensions: ['ESLint', 'Prettier', 'Live Server', 'Auto Rename Tag'],
-          settings: {},
-          selected: false,
-        },
-        {
-          id: 'python',
-          name: 'Python Development',
-          extensions: ['Python', 'Pylance', 'Jupyter'],
-          settings: {},
-          selected: false,
-        },
-      ])
+    if (!scanComplete && selectedVSCodeProfiles.length === 0) {
+      performScan()
     }
-  }, [selectedVSCodeProfiles.length, setSelectedVSCodeProfiles])
+  }, [])
+
+  const performScan = async () => {
+    setIsScanning(true)
+    
+    // Subscribe to IPC events
+    mockIPC.onEvent((event) => {
+      if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
+        const data = event.data as VSCodeScanResult
+        
+        // Convert scan results to store format
+        const profiles = data.profiles.map(profile => ({
+          id: profile.id,
+          name: profile.name,
+          extensions: profile.extensions.map(ext => ext.name),
+          settings: {},
+          selected: false
+        }))
+        
+        setSelectedVSCodeProfiles(profiles)
+        setIsScanning(false)
+        setScanComplete(true)
+      }
+    })
+    
+    // Start the scan
+    await mockIPC.scanVSCode()
+  }
 
   const handleSaveAndContinue = () => {
     // Mark vscode config as complete
@@ -163,20 +171,32 @@ export default function VSCodeProfilesPage() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => navigate('/scan')}
-            className="flex items-center text-primary-300 hover:text-white mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back to Scan
-          </button>
-          <h1 className="text-4xl font-bold mb-2">VS Code Profiles</h1>
-          <p className="text-primary-200">
-            Select VS Code profiles and extensions to include in your bundle
-          </p>
-        </div>
+        {/* Scanning State */}
+        {isScanning && (
+          <div className="card p-8 text-center">
+            <Loader2 className="w-16 h-16 text-accent-500 mx-auto mb-4 animate-spin" />
+            <h2 className="text-2xl font-bold mb-2">Scanning VS Code</h2>
+            <p className="text-primary-300">Detecting installed extensions and profiles...</p>
+          </div>
+        )}
+
+        {/* Results - Only show after scanning */}
+        {!isScanning && scanComplete && (
+          <>
+            {/* Header */}
+            <div className="mb-8">
+              <button
+                onClick={() => navigate('/scan')}
+                className="flex items-center text-primary-300 hover:text-white mb-4 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Scan
+              </button>
+              <h1 className="text-4xl font-bold mb-2">VS Code Profiles</h1>
+              <p className="text-primary-200">
+                Select VS Code profiles and extensions to include in your bundle
+              </p>
+            </div>
 
         {/* Summary Card */}
         <div className="card p-6 mb-6">
@@ -256,6 +276,8 @@ export default function VSCodeProfilesPage() {
             Back
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   )

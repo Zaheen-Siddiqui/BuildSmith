@@ -531,6 +531,264 @@ export class MockIPCService {
       this.status(stepId, 'failed', 'WSL2 installation failed')
     }
   }
+
+  /**
+   * Scan VS Code profiles and extensions
+   */
+  async scanVSCode(): Promise<void> {
+    console.log('MockIPC scanVSCode called')
+    const stepId = 'scan-vscode'
+    
+    this.status(stepId, 'running', 'Scanning VS Code profiles...')
+    this.log(stepId, 'info', 'Detecting VS Code installation...')
+    await this.delay(500)
+    
+    this.log(stepId, 'info', 'Found VS Code at C:\\Users\\...\\AppData\\Local\\Programs\\Microsoft VS Code')
+    this.log(stepId, 'info', 'Scanning installed extensions...')
+    await this.delay(1000)
+    
+    // Simulate scanning extensions
+    const mockExtensions = [
+      { id: 'esbenp.prettier-vscode', name: 'Prettier', version: '10.1.0' },
+      { id: 'dbaeumer.vscode-eslint', name: 'ESLint', version: '2.4.2' },
+      { id: 'eamodio.gitlens', name: 'GitLens', version: '14.3.0' },
+      { id: 'ms-python.python', name: 'Python', version: '2023.18.0' },
+      { id: 'ms-azuretools.vscode-docker', name: 'Docker', version: '1.28.0' },
+      { id: 'vscode.typescript-language-features', name: 'TypeScript', version: '1.0.0' },
+    ]
+    
+    for (let i = 0; i < mockExtensions.length; i++) {
+      this.progress(stepId, i + 1, mockExtensions.length, 'extensions')
+      await this.delay(100)
+    }
+    
+    this.log(stepId, 'success', `Found ${mockExtensions.length} installed extensions`)
+    this.log(stepId, 'info', 'Reading settings and keybindings...')
+    await this.delay(500)
+    
+    const result = {
+      type: 'vscode-scan-result' as const,
+      profiles: [{
+        id: 'default',
+        name: 'Default Profile',
+        extensions: mockExtensions,
+        settingsCount: 24,
+        keybindingsCount: 8
+      }]
+    }
+    
+    this.status(stepId, 'success', 'VS Code scan complete')
+    this.emit({
+      type: 'result',
+      stepId,
+      state: 'success',
+      data: result
+    })
+  }
+
+  /**
+   * Scan Docker images
+   */
+  async scanDocker(): Promise<void> {
+    console.log('MockIPC scanDocker called')
+    const stepId = 'scan-docker'
+    
+    this.status(stepId, 'running', 'Scanning Docker images...')
+    this.log(stepId, 'info', 'Connecting to Docker daemon...')
+    await this.delay(500)
+    
+    this.log(stepId, 'info', 'Fetching image list...')
+    await this.delay(1000)
+    
+    const mockImages = [
+      { id: 'sha256:abc123', repository: 'node', tag: '18-alpine', size: '174 MB', created: '2 days ago' },
+      { id: 'sha256:def456', repository: 'postgres', tag: '15', size: '376 MB', created: '1 week ago' },
+      { id: 'sha256:ghi789', repository: 'redis', tag: 'latest', size: '117 MB', created: '3 days ago' },
+      { id: 'sha256:jkl012', repository: 'nginx', tag: '1.25', size: '187 MB', created: '1 day ago' },
+    ]
+    
+    for (let i = 0; i < mockImages.length; i++) {
+      this.progress(stepId, i + 1, mockImages.length, 'images')
+      await this.delay(200)
+    }
+    
+    this.log(stepId, 'success', `Found ${mockImages.length} Docker images`)
+    
+    const result = {
+      type: 'docker-scan-result' as const,
+      images: mockImages
+    }
+    
+    this.status(stepId, 'success', 'Docker scan complete')
+    this.emit({
+      type: 'result',
+      stepId,
+      state: 'success',
+      data: result
+    })
+  }
+
+  /**
+   * Scan database connections
+   */
+  async scanDatabase(): Promise<void> {
+    console.log('MockIPC scanDatabase called')
+    const stepId = 'scan-database'
+    
+    this.status(stepId, 'running', 'Scanning database connections...')
+    this.log(stepId, 'info', 'Checking MongoDB Compass connections...')
+    await this.delay(500)
+    
+    this.log(stepId, 'info', 'Found MongoDB Compass installation')
+    await this.delay(500)
+    
+    this.log(stepId, 'info', 'Checking MySQL Workbench connections...')
+    await this.delay(500)
+    
+    const mockConnections = [
+      { 
+        id: 'mongo-local', 
+        name: 'Local MongoDB', 
+        type: 'mongodb' as const,
+        host: 'localhost',
+        port: 27017,
+        database: 'test_db',
+        source: 'compass' as const
+      },
+      { 
+        id: 'mysql-dev', 
+        name: 'Local MySQL', 
+        type: 'mysql' as const,
+        host: 'localhost',
+        port: 3306,
+        database: 'dev_db',
+        source: 'workbench' as const
+      },
+      { 
+        id: 'postgres-prod', 
+        name: 'Production PostgreSQL', 
+        type: 'postgresql' as const,
+        host: 'db.example.com',
+        port: 5432,
+        database: 'prod_db',
+        source: 'pgadmin' as const
+      },
+    ]
+    
+    for (let i = 0; i < mockConnections.length; i++) {
+      this.progress(stepId, i + 1, mockConnections.length, 'connections')
+      await this.delay(200)
+    }
+    
+    this.log(stepId, 'success', `Found ${mockConnections.length} database connections`)
+    
+    const result = {
+      type: 'database-scan-result' as const,
+      connections: mockConnections
+    }
+    
+    this.status(stepId, 'success', 'Database scan complete')
+    this.emit({
+      type: 'result',
+      stepId,
+      state: 'success',
+      data: result
+    })
+  }
+
+  /**
+   * Create bundle with selected items
+   */
+  async createBundle(options: {
+    includeSecrets: boolean
+    encryptionPassphrase?: string
+    devtools: boolean
+    environment: boolean
+    packages: boolean
+    selectedVSCodeProfiles: string[]
+    selectedDockerImages: string[]
+    selectedDatabases: string[]
+  }): Promise<void> {
+    console.log('MockIPC createBundle called with options:', options)
+    const stepId = 'create-bundle'
+    
+    this.status(stepId, 'running', 'Creating bundle...')
+    this.log(stepId, 'info', 'Initializing bundle creation...')
+    await this.delay(500)
+    
+    // Scan DevOps tools if requested
+    if (options.devtools) {
+      this.log(stepId, 'info', 'Scanning DevOps tools...')
+      this.progress(stepId, 1, 5, 'scans')
+      await this.delay(800)
+      this.log(stepId, 'info', 'Found: Git 2.42.0, Node.js 18.17.0')
+    }
+    
+    // Scan environment if requested
+    if (options.environment) {
+      this.log(stepId, 'info', 'Scanning environment variables...')
+      this.progress(stepId, 2, 5, 'scans')
+      await this.delay(800)
+      this.log(stepId, 'info', 'Found 28 PATH entries')
+    }
+    
+    // Scan packages if requested
+    if (options.packages) {
+      this.log(stepId, 'info', 'Scanning package dependencies...')
+      this.progress(stepId, 3, 5, 'scans')
+      await this.delay(800)
+      this.log(stepId, 'info', 'Found npm, pip, and cargo packages')
+    }
+    
+    // Create manifest
+    this.log(stepId, 'info', 'Creating bundle manifest...')
+    this.progress(stepId, 4, 5, 'scans')
+    await this.delay(1000)
+    
+    const itemCount = 
+      options.selectedVSCodeProfiles.length +
+      options.selectedDockerImages.length +
+      options.selectedDatabases.length +
+      (options.devtools ? 2 : 0) +
+      (options.packages ? 3 : 0)
+    
+    this.log(stepId, 'info', `Bundling ${itemCount} items...`)
+    
+    // Compress and create ZIP
+    this.log(stepId, 'info', 'Compressing bundle...')
+    this.progress(stepId, 5, 5, 'scans')
+    await this.delay(1500)
+    
+    const bundleName = `BuildSmith-Bundle-${new Date().toISOString().split('T')[0]}.zip`
+    const bundlePath = `C:\\Users\\Documents\\${bundleName}`
+    
+    // Encrypt if requested
+    if (options.includeSecrets && options.encryptionPassphrase) {
+      this.log(stepId, 'info', 'Encrypting bundle with AES-256...')
+      await this.delay(1000)
+      this.log(stepId, 'success', 'Bundle encrypted successfully')
+    }
+    
+    this.log(stepId, 'success', `Bundle created: ${bundlePath}`)
+    this.log(stepId, 'info', `Bundle size: ${(Math.random() * 50 + 10).toFixed(2)} MB`)
+    
+    const result = {
+      type: 'bundle-created' as const,
+      bundlePath,
+      bundleName,
+      size: Math.floor(Math.random() * 50000000 + 10000000),
+      encrypted: options.includeSecrets,
+      itemCount
+    }
+    
+    this.status(stepId, 'success', 'Bundle created successfully')
+    this.emit({
+      type: 'result',
+      stepId,
+      state: 'success',
+      data: result
+    })
+  }
 }
 
 // Singleton instance
