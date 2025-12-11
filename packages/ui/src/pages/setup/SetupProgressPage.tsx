@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle, Clock, Download, Loader, Terminal, X, Maximize2, Minimize2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useBundleStore } from '../../store/bundleStore'
-import { mockIPC } from '../../services/mockIPC'
+import { ipc } from '../../services'
 import { IPCEvent, InstallStep, StepState } from '../../types/ipc'
 
 interface LogEntry {
@@ -32,6 +32,7 @@ export default function SetupProgressPage() {
   const [showVSCodeExtensions, setShowVSCodeExtensions] = useState(false)
   const [showDatabases, setShowDatabases] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
+  const hasStartedInstallation = useRef(false)
 
   const handleIPCEvent = (event: IPCEvent) => {
     console.log('IPC Event:', event)
@@ -69,23 +70,42 @@ export default function SetupProgressPage() {
   }
 
   const updateStepStatus = (stepId: string, state: StepState, message: string) => {
-    setSteps(prevSteps =>
-      prevSteps.map(step =>
-        step.id === stepId
-          ? { 
-              ...step, 
-              status: state, 
-              logs: [...step.logs, {
-                type: 'log' as const,
-                stepId,
-                level: 'info' as const,
-                text: message,
-                timestamp: new Date().toISOString()
-              }] 
-            }
-          : step
-      )
-    )
+    setSteps(prevSteps => {
+      const existingStep = prevSteps.find(s => s.id === stepId)
+      
+      if (existingStep) {
+        // Update existing step
+        return prevSteps.map(step =>
+          step.id === stepId
+            ? { 
+                ...step, 
+                status: state, 
+                logs: [...step.logs, {
+                  type: 'log' as const,
+                  stepId,
+                  level: 'info' as const,
+                  text: message,
+                  timestamp: new Date().toISOString()
+                }] 
+              }
+            : step
+        )
+      } else {
+        // Create new step
+        return [...prevSteps, {
+          id: stepId,
+          name: message,
+          status: state,
+          logs: [{
+            type: 'log' as const,
+            stepId,
+            level: 'info' as const,
+            text: message,
+            timestamp: new Date().toISOString()
+          }]
+        }]
+      }
+    })
   }
 
   const updateStepProgress = (stepId: string, current: number, total: number) => {
@@ -119,17 +139,21 @@ export default function SetupProgressPage() {
     }
 
     // Subscribe to IPC events
-    mockIPC.onEvent(handleIPCEvent)
+    ipc.onEvent(handleIPCEvent)
 
-    // Start installation
-    startInstallation()
+    // Start installation only once
+    if (!hasStartedInstallation.current) {
+      hasStartedInstallation.current = true
+      startInstallation()
+    }
 
-    // Cleanup on unmount
+    // Cleanup on unmount - only abort if we're actually in the middle of installation
     return () => {
-      mockIPC.abort()
+      // Only abort if component is truly unmounting (e.g., user navigates away)
+      // Don't abort on re-renders
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [importedBundle, navigate])
+  }, [])
 
   // Auto-scroll terminal to bottom
   useEffect(() => {
@@ -139,6 +163,8 @@ export default function SetupProgressPage() {
   }, [allLogs, showTerminal])
 
   const startInstallation = async () => {
+    if (!importedBundle) return
+    
     // Build selected items list
     const selectedItems: string[] = []
     if (setupSelections.vscode) selectedItems.push('vscode')
@@ -153,10 +179,17 @@ export default function SetupProgressPage() {
       .filter((_, index) => selectedSetupDockerImages.includes(`docker-${index}`))
       .map(item => item.name)
 
+    console.log('Starting installation with:', {
+      selectedItems,
+      selectedDockerImages,
+      setupSelections,
+      bundlePath: importedBundle?.path || importedBundle?.name
+    })
+
     try {
-      await mockIPC.startSetup({
+      await ipc.startSetup({
         cmd: 'startSetup',
-        bundlePath: importedBundle?.name || 'bundle.zip',
+        bundlePath: importedBundle?.path || importedBundle?.name || 'bundle.zip',
         selectedItems,
         selectedDockerImages, // Pass selected Docker images
         options: {

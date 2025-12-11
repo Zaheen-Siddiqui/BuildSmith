@@ -51,6 +51,7 @@ export interface DatabaseConnection {
 export interface BundleMetadata {
   id: string
   name: string
+  path?: string  // Full path to bundle file
   createdAt: string
   description: string
   encrypted: boolean
