@@ -16,6 +16,9 @@ param(
 $WarningPreference = "SilentlyContinue"
 . "$PSScriptRoot/common.ps1"
 
+# Load encryption module
+Import-Module "$PSScriptRoot/modules/encryption.psm1" -Force
+
 $ErrorActionPreference = "Continue"
 
 # Define helper functions for operations not yet in modules
@@ -84,13 +87,41 @@ try {
     Emit-Log -StepId "setup" -Level "debug" -Text "Selected items: $($SelectedItems -join ', ')"
     Emit-Log -StepId "setup" -Level "debug" -Text "Selected items count: $($SelectedItems.Count)"
     
+    # Check if bundle is encrypted
+    $bundleToExtract = $BundlePath
+    $isEncrypted = $BundlePath -match '\.encrypted$'
+    
+    if ($isEncrypted) {
+        if ($Options.password) {
+            Emit-Status -StepId "decrypt-bundle" -State "running" -Message "Decrypting bundle..."
+            Emit-Log -StepId "decrypt-bundle" -Level "info" -Text "Bundle is encrypted, decrypting..."
+            
+            $decryptResult = Unprotect-Bundle -EncryptedPath $BundlePath -Password $Options.password
+            
+            if ($decryptResult.success) {
+                $bundleToExtract = $decryptResult.path
+                Emit-Log -StepId "decrypt-bundle" -Level "success" -Text "Bundle decrypted successfully"
+                Emit-Status -StepId "decrypt-bundle" -State "complete" -Message "Decryption complete"
+            } else {
+                throw "Failed to decrypt bundle: $($decryptResult.error)"
+            }
+        } else {
+            throw "Bundle is encrypted but no password provided"
+        }
+    }
+    
     # Extract bundle
     Emit-Status -StepId "extract-bundle" -State "running" -Message "Extracting bundle..."
     
     $extractDir = Join-Path $env:TEMP "buildsmith-extract-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     
     Add-Type -Assembly System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($BundlePath, $extractDir)
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($bundleToExtract, $extractDir)
+    
+    # Clean up decrypted temp file if we decrypted
+    if ($isEncrypted -and $bundleToExtract -ne $BundlePath) {
+        Remove-Item $bundleToExtract -Force -ErrorAction SilentlyContinue
+    }
     
     Emit-Result -StepId "extract-bundle" -State "success" -Duration 2
     
