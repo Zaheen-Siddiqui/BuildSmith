@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useBundleStore, DockerImage, ManifestItem } from '../../store/bundleStore'
 import DockerImageSelector, { DockerImageData } from '../../components/DockerImageSelector'
-import { mockIPC } from '../../services/mockIPC'
+import { ipc } from '../../services'
 import { DockerScanResult } from '../../types/ipc'
 
 export default function DockerImagesPage() {

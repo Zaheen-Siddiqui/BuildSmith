@@ -19,7 +19,7 @@ export default function BundlePreviewPage() {
   const [editingManifest, setEditingManifest] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isCreatingBundle, setIsCreatingBundle] = useState(false)
-  const [bundleCreated, setBundleCreated] = useState(false)
+  const [bundleCreated, setBundleCreated] = useState(true)  // Start as true - bundle is already "previewed"
   
   const { 
     currentBundle, 
@@ -35,47 +35,8 @@ export default function BundlePreviewPage() {
     selectedDatabases
   } = useBundleStore()
 
-  // Trigger bundle creation on mount
-  useEffect(() => {
-    const performBundleCreation = async () => {
-      setIsCreatingBundle(true)
-      
-      // Subscribe to IPC events
-      ipc.onEvent((event) => {
-        if (event.type === 'result' && event.stepId === 'create-bundle' && event.state === 'success') {
-          const data = event.data as BundleCreatedResult
-          
-          setCurrentBundle({
-            id: Date.now().toString(),
-            name: data.bundleName,
-            path: data.bundlePath,
-            createdAt: new Date().toISOString(),
-            description: 'Auto-generated development environment bundle',
-            encrypted: data.encrypted,
-          })
-          
-          setBundleCreated(true)
-          setIsCreatingBundle(false)
-        }
-      })
-      
-      // Start bundle creation
-      await ipc.createBundle({
-        includeSecrets: scanSettings.includeSecrets,
-        encryptionPassphrase: scanSettings.encryptionPassphrase,
-        devtools: scanSettings.devtools,
-        environment: scanSettings.environment,
-        packages: scanSettings.packages,
-        selectedVSCodeProfiles: selectedVSCodeProfiles.filter(p => p.selected).map(p => p.id),
-        selectedDockerImages: selectedDockerImages.filter(img => img.selected).map(img => img.id),
-        selectedDatabases: selectedDatabases.filter(db => db.selected).map(db => db.id)
-      })
-    }
-
-    if (!bundleCreated && !isCreatingBundle) {
-      performBundleCreation()
-    }
-  }, [bundleCreated, isCreatingBundle, scanSettings, selectedVSCodeProfiles, selectedDockerImages, selectedDatabases, setCurrentBundle])
+  // Don't run bundle creation on mount - the bundle preview just shows what will be created
+  // Actual bundle creation happens on export
   
   // Generate bundle structure from manifest items
   const generateBundleStructure = (): BundleItem[] => {

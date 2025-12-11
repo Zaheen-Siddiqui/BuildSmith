@@ -197,26 +197,19 @@ while ($true) {
             "createBundle" {
                 Emit-Log -StepId "create-bundle" -Level "info" -Text "Creating bundle from selected items"
                 
-                # Load bundle creation module
-                Import-Module "$PSScriptRoot\modules\Bundle-Creator.psm1" -Force
-                
-                # Convert command properties to hashtable
+                # Convert command properties to hashtable for scan.ps1
                 $options = @{
-                    selectedVSCodeProfiles = $command.selectedVSCodeProfiles
-                    selectedDockerImages = $command.selectedDockerImages
-                    selectedDatabases = $command.selectedDatabases
-                    includeDevOps = $command.includeDevOps
-                    includeEnvironment = $command.includeEnvironment
-                    includePackages = $command.includePackages
                     includeSecrets = $command.includeSecrets
-                    encryptionPassphrase = $command.encryptionPassphrase
+                    vscode = ($command.selectedVSCodeProfiles.Count -gt 0)
+                    docker = ($command.selectedDockerImages.Count -gt 0)
+                    databases = ($command.selectedDatabases.Count -gt 0)
+                    devtools = $command.devtools
+                    environment = $command.environment
+                    packages = $command.packages
                 }
                 
-                # Create bundle
-                $result = New-Bundle @options
-                
-                # Emit result event
-                Emit-Event -Type "result" -StepId "create-bundle" -State "success" -Data $result
+                # Run scan.ps1 which handles bundle creation
+                & "$PSScriptRoot/scan.ps1" -Options $options
             }
             
             "checkForUpdates" {
