@@ -20,6 +20,7 @@ export default function BundlePreviewPage() {
   const { 
     currentBundle, 
     manifestItems, 
+    scanSettings,
     updateManifestItem, 
     setExportPath, 
     resetScan, 
@@ -232,23 +233,8 @@ export default function BundlePreviewPage() {
           </p>
         </div>
 
-        {/* Creating Bundle State */}
-        {isCreatingBundle && (
-          <div className="card p-8 text-center mb-6">
-            <Loader2 className="w-16 h-16 text-accent-500 mx-auto mb-4 animate-spin" />
-            <h2 className="text-2xl font-bold mb-2">Creating Bundle</h2>
-            <p className="text-primary-300 mb-4">Scanning DevOps tools, environment variables, and package dependencies...</p>
-            <div className="text-sm text-primary-400">
-              This may take a few moments
-            </div>
-          </div>
-        )}
-
-        {/* Bundle Created - Show Preview and Export */}
-        {bundleCreated && !isCreatingBundle && (
-          <>
-            {/* Bundle Info */}
-            <div className="card p-6 mb-6">
+        {/* Bundle Info */}
+        <div className="card p-6 mb-6">
               <h2 className="text-2xl font-bold mb-4">Bundle Information</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -380,9 +366,6 @@ export default function BundlePreviewPage() {
                 Cancel
               </button>
             </div>
-          
-          </>
-        )}
       </div>
     </div>
   )

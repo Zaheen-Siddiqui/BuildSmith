@@ -204,7 +204,7 @@ export class IPCService {
   }): Promise<void> {
     const command: IPCCommand = {
       cmd: 'createBundle',
-      ...options
+      options: options
     }
     await this.sendCommand(command)
   }
