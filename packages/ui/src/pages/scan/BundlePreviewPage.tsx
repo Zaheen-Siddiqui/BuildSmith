@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save } from 'lucide-react'
 import { useBundleStore } from '../../store/bundleStore'
 import { createBundle, downloadBlob } from '../../utils/bundleUtils'
-import { ipc } from '../../services'
-import { BundleCreatedResult } from '../../types/ipc'
 
 interface BundleItem {
   name: string
@@ -18,21 +16,14 @@ export default function BundlePreviewPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']))
   const [editingManifest, setEditingManifest] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [isCreatingBundle, setIsCreatingBundle] = useState(false)
-  const [bundleCreated, setBundleCreated] = useState(true)  // Start as true - bundle is already "previewed"
   
   const { 
     currentBundle, 
     manifestItems, 
-    scanSettings, 
     updateManifestItem, 
     setExportPath, 
-    setCurrentBundle,
     resetScan, 
-    resetBundle,
-    selectedVSCodeProfiles,
-    selectedDockerImages,
-    selectedDatabases
+    resetBundle
   } = useBundleStore()
 
   // Don't run bundle creation on mount - the bundle preview just shows what will be created
