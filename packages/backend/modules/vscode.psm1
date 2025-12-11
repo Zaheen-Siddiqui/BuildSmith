@@ -26,6 +26,70 @@ function Get-VSCodePath {
     return $paths
 }
 
+function Get-VSCodeProfiles {
+    <#
+    .SYNOPSIS
+        Get current VS Code profile data for bundle creation
+    .DESCRIPTION
+        Scans the current VS Code installation and returns profile data including
+        installed extensions, settings, and keybindings
+    #>
+    
+    try {
+        $paths = Get-VSCodePath
+        
+        if (-not $paths.exe) {
+            Write-Warning "VS Code not found"
+            return $null
+        }
+        
+        $profile = @{
+            extensions = @()
+            settings = $null
+            keybindings = $null
+        }
+        
+        # Get installed extensions
+        $extensionsOutput = & code --list-extensions --show-versions 2>$null
+        if ($LASTEXITCODE -eq 0 -and $extensionsOutput) {
+            foreach ($line in $extensionsOutput) {
+                if ($line -match '^(.+)@(.+)$') {
+                    $profile.extensions += @{
+                        id = $matches[1]
+                        version = $matches[2]
+                    }
+                }
+            }
+        }
+        
+        # Read settings.json if exists
+        if (Test-Path $paths.settingsPath) {
+            $settingsContent = Get-Content $paths.settingsPath -Raw
+            try {
+                $profile.settings = $settingsContent | ConvertFrom-Json
+            } catch {
+                Write-Warning "Failed to parse settings.json: $($_.Exception.Message)"
+            }
+        }
+        
+        # Read keybindings.json if exists
+        if (Test-Path $paths.keybindingsPath) {
+            $keybindingsContent = Get-Content $paths.keybindingsPath -Raw
+            try {
+                $profile.keybindings = $keybindingsContent | ConvertFrom-Json
+            } catch {
+                Write-Warning "Failed to parse keybindings.json: $($_.Exception.Message)"
+            }
+        }
+        
+        return $profile
+    }
+    catch {
+        Write-Warning "Failed to get VS Code profiles: $($_.Exception.Message)"
+        return $null
+    }
+}
+
 function Export-VSCodeProfile {
     <#
     .SYNOPSIS
@@ -212,7 +276,8 @@ function Install-VSCodeExtensions {
         $failed = 0
         $failedExtensions = @()
         
-        for ($i = 0; $i < $Extensions.Count; $i++) {
+        $totalCount = $Extensions.Count
+        for ($i = 0; $i -lt $totalCount; $i++) {
             if (Test-AbortRequested) {
                 Emit-Log -StepId $StepId -Level "warn" -Text "Installation aborted by user"
                 break
@@ -220,7 +285,7 @@ function Install-VSCodeExtensions {
             
             $ext = $Extensions[$i]
             Emit-Log -StepId $StepId -Level "info" -Text "Installing: $ext"
-            Emit-Progress -StepId $StepId -Current ($i + 1) -Total $Extensions.Count -Unit "extensions"
+            Emit-Progress -StepId $StepId -Current ($i + 1) -Total $totalCount -Unit "extensions"
             
             try {
                 # Run code --install-extension
@@ -232,12 +297,12 @@ function Install-VSCodeExtensions {
                 
                 if ($process.ExitCode -eq 0) {
                     $installed++
-                    Emit-Log -StepId $StepId -Level "success" -Text "✓ $ext"
+                    Emit-Log -StepId $StepId -Level "success" -Text "Installed $ext"
                 }
                 else {
                     $failed++
                     $failedExtensions += $ext
-                    Emit-Log -StepId $StepId -Level "error" -Text "✗ $ext (exit code: $($process.ExitCode))"
+                    Emit-Log -StepId $StepId -Level "error" -Text "Failed $ext (exit code: $($process.ExitCode))"
                 }
                 
                 # Cleanup temp logs
@@ -246,7 +311,7 @@ function Install-VSCodeExtensions {
             catch {
                 $failed++
                 $failedExtensions += $ext
-                Emit-Log -StepId $StepId -Level "error" -Text "✗ $ext - $($_.Exception.Message)"
+                Emit-Log -StepId $StepId -Level "error" -Text "Failed $ext - $($_.Exception.Message)"
             }
         }
         
@@ -268,10 +333,10 @@ function Install-VSCodeExtensions {
     }
     catch {
         Emit-Log -StepId $StepId -Level "error" -Text "Error installing extensions: $($_.Exception.Message)"
-        Emit-Result -StepId $StepId -State "failed" -Error $_.Exception.Message
+        Emit-Result -StepId $StepId -State "failed" -Error "Installation failed"
         return $false
     }
 }
 
 # Export all public functions
-Export-ModuleMember -Function Export-VSCodeProfile, Import-VSCodeProfile, Install-VSCodeExtensions, Get-VSCodePath
+Export-ModuleMember -Function Export-VSCodeProfile, Import-VSCodeProfile, Install-VSCodeExtensions, Get-VSCodePath, Get-VSCodeProfiles

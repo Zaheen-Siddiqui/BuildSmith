@@ -16,6 +16,15 @@ param(
 $WarningPreference = "SilentlyContinue"
 . "$PSScriptRoot/common.ps1"
 
+# Load encryption module
+Import-Module "$PSScriptRoot/modules/encryption.psm1" -Force
+
+# Load database module
+Import-Module "$PSScriptRoot/modules/db.psm1" -Force
+
+# Load drivers module
+Import-Module "$PSScriptRoot/modules/drivers.psm1" -Force
+
 $ErrorActionPreference = "Continue"
 
 # Define helper functions for operations not yet in modules
@@ -84,13 +93,41 @@ try {
     Emit-Log -StepId "setup" -Level "debug" -Text "Selected items: $($SelectedItems -join ', ')"
     Emit-Log -StepId "setup" -Level "debug" -Text "Selected items count: $($SelectedItems.Count)"
     
+    # Check if bundle is encrypted
+    $bundleToExtract = $BundlePath
+    $isEncrypted = $BundlePath -match '\.encrypted$'
+    
+    if ($isEncrypted) {
+        if ($Options.password) {
+            Emit-Status -StepId "decrypt-bundle" -State "running" -Message "Decrypting bundle..."
+            Emit-Log -StepId "decrypt-bundle" -Level "info" -Text "Bundle is encrypted, decrypting..."
+            
+            $decryptResult = Unprotect-Bundle -EncryptedPath $BundlePath -Password $Options.password
+            
+            if ($decryptResult.success) {
+                $bundleToExtract = $decryptResult.path
+                Emit-Log -StepId "decrypt-bundle" -Level "success" -Text "Bundle decrypted successfully"
+                Emit-Status -StepId "decrypt-bundle" -State "complete" -Message "Decryption complete"
+            } else {
+                throw "Failed to decrypt bundle: $($decryptResult.error)"
+            }
+        } else {
+            throw "Bundle is encrypted but no password provided"
+        }
+    }
+    
     # Extract bundle
     Emit-Status -StepId "extract-bundle" -State "running" -Message "Extracting bundle..."
     
     $extractDir = Join-Path $env:TEMP "buildsmith-extract-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     
     Add-Type -Assembly System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($BundlePath, $extractDir)
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($bundleToExtract, $extractDir)
+    
+    # Clean up decrypted temp file if we decrypted
+    if ($isEncrypted -and $bundleToExtract -ne $BundlePath) {
+        Remove-Item $bundleToExtract -Force -ErrorAction SilentlyContinue
+    }
     
     Emit-Result -StepId "extract-bundle" -State "success" -Duration 2
     
@@ -142,6 +179,18 @@ try {
         }
     }
     
+    # Restore MongoDB Compass connections
+    if ($SelectedItems -contains "databases" -and $manifest.mongoConnections) {
+        Emit-Log -StepId "setup" -Level "info" -Text "Restoring MongoDB Compass connections..."
+        $mongoFile = Join-Path $extractDir $manifest.mongoConnections
+        
+        if (Test-Path $mongoFile) {
+            Import-CompassConnections -ConnectionsFile $mongoFile
+        } else {
+            Emit-Log -StepId "setup" -Level "warn" -Text "MongoDB connections file not found: $mongoFile"
+        }
+    }
+    
     # Restore database connections
     if ($SelectedItems -contains "databases" -and $manifest.dbConnections) {
         $dbFile = Join-Path $extractDir $manifest.dbConnections
@@ -150,6 +199,53 @@ try {
             if (-not $success) {
                 $failedSteps += "restore-db-connections"
             }
+        }
+    }
+    
+    # Install drivers from drivers folder
+    if ($SelectedItems -contains "drivers") {
+        Emit-Status -StepId "install-drivers" -State "running" -Message "Installing drivers..."
+        
+        # Check if user provided a drivers folder in Options
+        $driversFolder = $null
+        if ($Options.driversFolder -and (Test-Path $Options.driversFolder)) {
+            $driversFolder = $Options.driversFolder
+        }
+        # Check for drivers folder in bundle directory
+        elseif (Test-Path (Join-Path $extractDir "drivers")) {
+            $driversFolder = Join-Path $extractDir "drivers"
+        }
+        
+        if ($driversFolder) {
+            Emit-Log -StepId "install-drivers" -Level "info" -Text "Installing drivers from: $driversFolder"
+            Emit-Log -StepId "install-drivers" -Level "warning" -Text "IMPORTANT: Driver installation may require system reboot"
+            Emit-Log -StepId "install-drivers" -Level "warning" -Text "IMPORTANT: Some drivers may require manual confirmation"
+            
+            $result = Install-DriversFromFolder -DriverFolder $driversFolder
+            
+            if ($result.success) {
+                Emit-Log -StepId "install-drivers" -Level "success" -Text "Installed $($result.installed) of $($result.total) drivers"
+                
+                if ($result.failed -gt 0) {
+                    Emit-Log -StepId "install-drivers" -Level "warning" -Text "$($result.failed) drivers failed or require manual installation"
+                }
+                
+                # Check if any driver requires reboot
+                $rebootRequired = $result.results | Where-Object { $_.requiresReboot }
+                if ($rebootRequired.Count -gt 0) {
+                    Emit-Log -StepId "install-drivers" -Level "warning" -Text "REBOOT REQUIRED: $($rebootRequired.Count) drivers require system restart"
+                }
+            }
+            else {
+                Emit-Log -StepId "install-drivers" -Level "error" -Text "Driver installation failed: $($result.error)"
+                $failedSteps += "install-drivers"
+            }
+            
+            Emit-Status -StepId "install-drivers" -State "complete" -Message "Driver installation complete"
+        }
+        else {
+            Emit-Log -StepId "install-drivers" -Level "warning" -Text "No drivers folder found - skipping driver installation"
+            Emit-Log -StepId "install-drivers" -Level "info" -Text "To install drivers, provide -driversFolder option or include drivers/ folder in bundle"
         }
     }
     
