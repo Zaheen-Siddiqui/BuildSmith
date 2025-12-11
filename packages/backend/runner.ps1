@@ -105,7 +105,28 @@ while ($true) {
                 Import-Module "$PSScriptRoot\modules\vscode.psm1" -Force
                 
                 # Run VS Code scan
-                $result = Get-VSCodeProfiles
+                $profileData = Get-VSCodeProfiles
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "vscode-scan-result"
+                    profiles = @(
+                        @{
+                            id = "default"
+                            name = "Default"
+                            extensions = @($profileData.extensions | ForEach-Object {
+                                @{
+                                    name = $_.id
+                                    version = $_.version
+                                }
+                            })
+                            settingsCount = if ($profileData.settings) { ($profileData.settings.PSObject.Properties | Measure-Object).Count } else { 0 }
+                            keybindingsCount = if ($profileData.keybindings) { ($profileData.keybindings | Measure-Object).Count } else { 0 }
+                        }
+                    )
+                }
+                
+                Emit-Log -StepId "scan-vscode" -Level "success" -Text "Found $($profileData.extensions.Count) extensions"
                 
                 # Emit result event
                 Emit-Event -Type "result" -StepId "scan-vscode" -State "success" -Data $result
@@ -118,7 +139,25 @@ while ($true) {
                 Import-Module "$PSScriptRoot\modules\docker.psm1" -Force
                 
                 # Run Docker scan
-                $result = Get-DockerImages
+                $dockerData = Get-DockerImages
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "docker-scan-result"
+                    images = @($dockerData | ForEach-Object {
+                        # Parse image name and tag
+                        $imageParts = $_.image -split ':'
+                        @{
+                            id = $_.id
+                            repository = $imageParts[0]
+                            tag = if ($imageParts.Count -gt 1) { $imageParts[1] } else { "latest" }
+                            size = $_.size
+                            created = "Unknown"
+                        }
+                    })
+                }
+                
+                Emit-Log -StepId "scan-docker" -Level "success" -Text "Found $($dockerData.Count) Docker images"
                 
                 # Emit result event
                 Emit-Event -Type "result" -StepId "scan-docker" -State "success" -Data $result
@@ -131,7 +170,25 @@ while ($true) {
                 Import-Module "$PSScriptRoot\modules\db.psm1" -Force
                 
                 # Run database scan
-                $result = Get-DatabaseConnections
+                $dbData = Get-DatabaseConnections
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "database-scan-result"
+                    connections = @($dbData | ForEach-Object {
+                        @{
+                            id = "$($_.type)-$($_.host)-$($_.port)"
+                            name = if ($_.name) { $_.name } else { "$($_.host):$($_.port)" }
+                            type = $_.type
+                            host = $_.host
+                            port = [int]$_.port
+                            database = if ($_.database) { $_.database } else { "" }
+                            source = $_.source
+                        }
+                    })
+                }
+                
+                Emit-Log -StepId "scan-database" -Level "success" -Text "Found $($dbData.Count) database connections"
                 
                 # Emit result event
                 Emit-Event -Type "result" -StepId "scan-database" -State "success" -Data $result
