@@ -17,6 +17,7 @@ Import-Module "$PSScriptRoot/modules/docker.psm1" -Force
 Import-Module "$PSScriptRoot/modules/db.psm1" -Force
 Import-Module "$PSScriptRoot/modules/env.psm1" -Force
 Import-Module "$PSScriptRoot/modules/encryption.psm1" -Force
+Import-Module "$PSScriptRoot/modules/drivers.psm1" -Force
 
 $startTime = Get-Date
 
@@ -42,6 +43,7 @@ try {
         vscodeProfile = $null
         mongoConnections = $null
         dbConnections = @()
+        drivers = @()
         pathEntries = @()
         envVars = @{}
     }
@@ -113,6 +115,25 @@ try {
         }
         
         Emit-Status -StepId "scan-databases" -State "complete" -Message "Database scan complete"
+    }
+    
+    # Scan Drivers
+    if ($Options.drivers) {
+        Emit-Status -StepId "scan-drivers" -State "running" -Message "Scanning installed drivers..."
+        Emit-Log -StepId "scan-drivers" -Level "info" -Text "Scanning device drivers..."
+        
+        $drivers = Get-InstalledDrivers
+        if ($drivers -and $drivers.Count -gt 0) {
+            $driversFile = Join-Path $bundleDir "drivers.json"
+            $exportResult = Export-DriverList -Drivers $drivers -OutputPath $driversFile
+            
+            if ($exportResult.success) {
+                $manifest.drivers = "drivers.json"
+                Emit-Log -StepId "scan-drivers" -Level "success" -Text "Exported $($exportResult.count) driver entries"
+            }
+        }
+        
+        Emit-Status -StepId "scan-drivers" -State "complete" -Message "Driver scan complete"
     }
     
     # Scan Environment

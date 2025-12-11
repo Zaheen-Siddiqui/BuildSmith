@@ -22,6 +22,9 @@ Import-Module "$PSScriptRoot/modules/encryption.psm1" -Force
 # Load database module
 Import-Module "$PSScriptRoot/modules/db.psm1" -Force
 
+# Load drivers module
+Import-Module "$PSScriptRoot/modules/drivers.psm1" -Force
+
 $ErrorActionPreference = "Continue"
 
 # Define helper functions for operations not yet in modules
@@ -196,6 +199,53 @@ try {
             if (-not $success) {
                 $failedSteps += "restore-db-connections"
             }
+        }
+    }
+    
+    # Install drivers from drivers folder
+    if ($SelectedItems -contains "drivers") {
+        Emit-Status -StepId "install-drivers" -State "running" -Message "Installing drivers..."
+        
+        # Check if user provided a drivers folder in Options
+        $driversFolder = $null
+        if ($Options.driversFolder -and (Test-Path $Options.driversFolder)) {
+            $driversFolder = $Options.driversFolder
+        }
+        # Check for drivers folder in bundle directory
+        elseif (Test-Path (Join-Path $extractDir "drivers")) {
+            $driversFolder = Join-Path $extractDir "drivers"
+        }
+        
+        if ($driversFolder) {
+            Emit-Log -StepId "install-drivers" -Level "info" -Text "Installing drivers from: $driversFolder"
+            Emit-Log -StepId "install-drivers" -Level "warning" -Text "IMPORTANT: Driver installation may require system reboot"
+            Emit-Log -StepId "install-drivers" -Level "warning" -Text "IMPORTANT: Some drivers may require manual confirmation"
+            
+            $result = Install-DriversFromFolder -DriverFolder $driversFolder
+            
+            if ($result.success) {
+                Emit-Log -StepId "install-drivers" -Level "success" -Text "Installed $($result.installed) of $($result.total) drivers"
+                
+                if ($result.failed -gt 0) {
+                    Emit-Log -StepId "install-drivers" -Level "warning" -Text "$($result.failed) drivers failed or require manual installation"
+                }
+                
+                # Check if any driver requires reboot
+                $rebootRequired = $result.results | Where-Object { $_.requiresReboot }
+                if ($rebootRequired.Count -gt 0) {
+                    Emit-Log -StepId "install-drivers" -Level "warning" -Text "REBOOT REQUIRED: $($rebootRequired.Count) drivers require system restart"
+                }
+            }
+            else {
+                Emit-Log -StepId "install-drivers" -Level "error" -Text "Driver installation failed: $($result.error)"
+                $failedSteps += "install-drivers"
+            }
+            
+            Emit-Status -StepId "install-drivers" -State "complete" -Message "Driver installation complete"
+        }
+        else {
+            Emit-Log -StepId "install-drivers" -Level "warning" -Text "No drivers folder found - skipping driver installation"
+            Emit-Log -StepId "install-drivers" -Level "info" -Text "To install drivers, provide -driversFolder option or include drivers/ folder in bundle"
         }
     }
     
