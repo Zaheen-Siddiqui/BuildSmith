@@ -98,6 +98,120 @@ while ($true) {
                 Emit-Log -StepId $command.stepId -Level "info" -Text "Retrying..."
             }
             
+            "scanVSCode" {
+                Emit-Log -StepId "scan-vscode" -Level "info" -Text "Scanning VS Code profiles and extensions"
+                
+                # Load VS Code scanner module
+                Import-Module "$PSScriptRoot\modules\vscode.psm1" -Force
+                
+                # Run VS Code scan
+                $profileData = Get-VSCodeProfiles
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "vscode-scan-result"
+                    profiles = @(
+                        @{
+                            id = "default"
+                            name = "Default"
+                            extensions = @($profileData.extensions | ForEach-Object {
+                                @{
+                                    name = $_.id
+                                    version = $_.version
+                                }
+                            })
+                            settingsCount = if ($profileData.settings) { ($profileData.settings.PSObject.Properties | Measure-Object).Count } else { 0 }
+                            keybindingsCount = if ($profileData.keybindings) { ($profileData.keybindings | Measure-Object).Count } else { 0 }
+                        }
+                    )
+                }
+                
+                Emit-Log -StepId "scan-vscode" -Level "success" -Text "Found $($profileData.extensions.Count) extensions"
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-vscode" -State "success" -Data $result
+            }
+            
+            "scanDocker" {
+                Emit-Log -StepId "scan-docker" -Level "info" -Text "Scanning Docker images"
+                
+                # Load Docker scanner module
+                Import-Module "$PSScriptRoot\modules\docker.psm1" -Force
+                
+                # Run Docker scan
+                $dockerData = Get-DockerImages
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "docker-scan-result"
+                    images = @($dockerData | ForEach-Object {
+                        # Parse image name and tag
+                        $imageParts = $_.image -split ':'
+                        @{
+                            id = $_.id
+                            repository = $imageParts[0]
+                            tag = if ($imageParts.Count -gt 1) { $imageParts[1] } else { "latest" }
+                            size = $_.size
+                            created = "Unknown"
+                        }
+                    })
+                }
+                
+                Emit-Log -StepId "scan-docker" -Level "success" -Text "Found $($dockerData.Count) Docker images"
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-docker" -State "success" -Data $result
+            }
+            
+            "scanDatabase" {
+                Emit-Log -StepId "scan-database" -Level "info" -Text "Scanning database connections"
+                
+                # Load Database scanner module  
+                Import-Module "$PSScriptRoot\modules\db.psm1" -Force
+                
+                # Run database scan
+                $dbData = Get-DatabaseConnections
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "database-scan-result"
+                    connections = @($dbData | ForEach-Object {
+                        @{
+                            id = "$($_.type)-$($_.host)-$($_.port)"
+                            name = if ($_.name) { $_.name } else { "$($_.host):$($_.port)" }
+                            type = $_.type
+                            host = $_.host
+                            port = [int]$_.port
+                            database = if ($_.database) { $_.database } else { "" }
+                            source = $_.source
+                        }
+                    })
+                }
+                
+                Emit-Log -StepId "scan-database" -Level "success" -Text "Found $($dbData.Count) database connections"
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-database" -State "success" -Data $result
+            }
+            
+            "createBundle" {
+                Emit-Log -StepId "create-bundle" -Level "info" -Text "Creating bundle from selected items"
+                
+                # Convert command properties to hashtable for scan.ps1
+                $options = @{
+                    includeSecrets = $command.includeSecrets
+                    vscode = ($command.selectedVSCodeProfiles.Count -gt 0)
+                    docker = ($command.selectedDockerImages.Count -gt 0)
+                    databases = ($command.selectedDatabases.Count -gt 0)
+                    devtools = $command.devtools
+                    environment = $command.environment
+                    packages = $command.packages
+                }
+                
+                # Run scan.ps1 which handles bundle creation
+                & "$PSScriptRoot/scan.ps1" -Options $options
+            }
+            
             "checkForUpdates" {
                 Emit-Log -StepId "runner" -Level "info" -Text "Checking for updates (channel: $($command.channel))"
                 # Stub - real implementation would check GitHub releases

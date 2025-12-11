@@ -29,6 +29,25 @@ function Emit-Result {
     $evt | ConvertTo-Json -Compress | Write-Output
 }
 
+function Emit-Event {
+    param(
+        [string]$Type,
+        [string]$StepId,
+        [string]$State,
+        [object]$Data
+    )
+    $evt = @{ 
+        type = $Type
+        stepId = $StepId
+        state = $State
+        timestamp = (Get-Date -Format "o")
+    }
+    if ($Data) { 
+        $evt.data = $Data
+    }
+    $evt | ConvertTo-Json -Compress -Depth 10 | Write-Output
+}
+
 function Emit-Complete {
     param([string]$Outcome, [int]$Duration = 0, [string[]]$FailedSteps = @(), [string[]]$SkippedSteps = @())
     @{ type = "complete"; outcome = $Outcome; totalDuration = $Duration; failedSteps = $FailedSteps; skippedSteps = $SkippedSteps } | ConvertTo-Json -Compress | Write-Output

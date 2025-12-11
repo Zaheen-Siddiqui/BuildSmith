@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
-import { mockIPC } from '../../services/mockIPC'
+import { ipc } from '../../services'
 import { DatabaseScanResult } from '../../types/ipc'
 
 export default function DatabaseConnectionsPage() {
@@ -30,7 +30,7 @@ export default function DatabaseConnectionsPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        mockIPC.onEvent((event) => {
+        ipc.onEvent((event) => {
           if (event.type === 'result' && event.stepId === 'scan-database' && event.state === 'success') {
             const data = event.data as DatabaseScanResult
             
@@ -52,7 +52,7 @@ export default function DatabaseConnectionsPage() {
         })
         
         // Start the scan
-        await mockIPC.scanDatabase()
+        await ipc.scanDatabase()
       }
 
       performScan()

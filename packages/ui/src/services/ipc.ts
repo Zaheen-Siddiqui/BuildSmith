@@ -160,6 +160,56 @@ export class IPCService {
   }
 
   /**
+   * Scan VS Code profiles and extensions
+   */
+  async scanVSCode(): Promise<void> {
+    const command: IPCCommand = {
+      cmd: 'scanVSCode'
+    }
+    await this.sendCommand(command)
+  }
+
+  /**
+   * Scan Docker images
+   */
+  async scanDocker(): Promise<void> {
+    const command: IPCCommand = {
+      cmd: 'scanDocker'
+    }
+    await this.sendCommand(command)
+  }
+
+  /**
+   * Scan database connections
+   */
+  async scanDatabase(): Promise<void> {
+    const command: IPCCommand = {
+      cmd: 'scanDatabase'
+    }
+    await this.sendCommand(command)
+  }
+
+  /**
+   * Create bundle from selected items
+   */
+  async createBundle(options: {
+    selectedVSCodeProfiles: string[]
+    selectedDockerImages: string[]
+    selectedDatabases: string[]
+    devtools: boolean
+    environment: boolean
+    packages: boolean
+    includeSecrets: boolean
+    encryptionPassphrase?: string
+  }): Promise<void> {
+    const command: IPCCommand = {
+      cmd: 'createBundle',
+      options: options
+    }
+    await this.sendCommand(command)
+  }
+
+  /**
    * Check if running in Electron
    */
   isElectronEnvironment(): boolean {

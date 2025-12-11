@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save } from 'lucide-react'
 import { useBundleStore } from '../../store/bundleStore'
 import { createBundle, downloadBlob } from '../../utils/bundleUtils'
-import { mockIPC } from '../../services/mockIPC'
-import { BundleCreatedResult } from '../../types/ipc'
 
 interface BundleItem {
   name: string
@@ -18,64 +16,19 @@ export default function BundlePreviewPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']))
   const [editingManifest, setEditingManifest] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [isCreatingBundle, setIsCreatingBundle] = useState(false)
-  const [bundleCreated, setBundleCreated] = useState(false)
   
   const { 
     currentBundle, 
     manifestItems, 
-    scanSettings, 
+    scanSettings,
     updateManifestItem, 
     setExportPath, 
-    setCurrentBundle,
     resetScan, 
-    resetBundle,
-    selectedVSCodeProfiles,
-    selectedDockerImages,
-    selectedDatabases
+    resetBundle
   } = useBundleStore()
 
-  // Trigger bundle creation on mount
-  useEffect(() => {
-    const performBundleCreation = async () => {
-      setIsCreatingBundle(true)
-      
-      // Subscribe to IPC events
-      mockIPC.onEvent((event) => {
-        if (event.type === 'result' && event.stepId === 'create-bundle' && event.state === 'success') {
-          const data = event.data as BundleCreatedResult
-          
-          setCurrentBundle({
-            id: Date.now().toString(),
-            name: data.bundleName,
-            path: data.bundlePath,
-            createdAt: new Date().toISOString(),
-            description: 'Auto-generated development environment bundle',
-            encrypted: data.encrypted,
-          })
-          
-          setBundleCreated(true)
-          setIsCreatingBundle(false)
-        }
-      })
-      
-      // Start bundle creation
-      await mockIPC.createBundle({
-        includeSecrets: scanSettings.includeSecrets,
-        encryptionPassphrase: scanSettings.encryptionPassphrase,
-        devtools: scanSettings.devtools,
-        environment: scanSettings.environment,
-        packages: scanSettings.packages,
-        selectedVSCodeProfiles: selectedVSCodeProfiles.filter(p => p.selected).map(p => p.id),
-        selectedDockerImages: selectedDockerImages.filter(img => img.selected).map(img => img.id),
-        selectedDatabases: selectedDatabases.filter(db => db.selected).map(db => db.id)
-      })
-    }
-
-    if (!bundleCreated && !isCreatingBundle) {
-      performBundleCreation()
-    }
-  }, [bundleCreated, isCreatingBundle, scanSettings, selectedVSCodeProfiles, selectedDockerImages, selectedDatabases, setCurrentBundle])
+  // Don't run bundle creation on mount - the bundle preview just shows what will be created
+  // Actual bundle creation happens on export
   
   // Generate bundle structure from manifest items
   const generateBundleStructure = (): BundleItem[] => {
@@ -280,23 +233,8 @@ export default function BundlePreviewPage() {
           </p>
         </div>
 
-        {/* Creating Bundle State */}
-        {isCreatingBundle && (
-          <div className="card p-8 text-center mb-6">
-            <Loader2 className="w-16 h-16 text-accent-500 mx-auto mb-4 animate-spin" />
-            <h2 className="text-2xl font-bold mb-2">Creating Bundle</h2>
-            <p className="text-primary-300 mb-4">Scanning DevOps tools, environment variables, and package dependencies...</p>
-            <div className="text-sm text-primary-400">
-              This may take a few moments
-            </div>
-          </div>
-        )}
-
-        {/* Bundle Created - Show Preview and Export */}
-        {bundleCreated && !isCreatingBundle && (
-          <>
-            {/* Bundle Info */}
-            <div className="card p-6 mb-6">
+        {/* Bundle Info */}
+        <div className="card p-6 mb-6">
               <h2 className="text-2xl font-bold mb-4">Bundle Information</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -428,9 +366,6 @@ export default function BundlePreviewPage() {
                 Cancel
               </button>
             </div>
-          
-          </>
-        )}
       </div>
     </div>
   )

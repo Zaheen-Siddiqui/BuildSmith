@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Code, CheckCircle, Package, Loader2 } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
-import { mockIPC } from '../../services/mockIPC'
+import { ipc } from '../../services'
 import { VSCodeScanResult } from '../../types/ipc'
 
 export default function VSCodeProfilesPage() {
@@ -30,7 +30,7 @@ export default function VSCodeProfilesPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        mockIPC.onEvent((event) => {
+        ipc.onEvent((event) => {
           if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
             const data = event.data as VSCodeScanResult
             
@@ -50,7 +50,7 @@ export default function VSCodeProfilesPage() {
         })
         
         // Start the scan
-        await mockIPC.scanVSCode()
+        await ipc.scanVSCode()
       }
 
       performScan()
