@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useBundleStore, DockerImage, ManifestItem } from '../../store/bundleStore'
 import DockerImageSelector, { DockerImageData } from '../../components/DockerImageSelector'
+import { mockIPC } from '../../services/mockIPC'
+import { DockerScanResult } from '../../types/ipc'
 
 export default function DockerImagesPage() {
   const navigate = useNavigate()
   const [images, setImages] = useState<DockerImageData[]>([])
+  const [isScanning, setIsScanning] = useState(false)
+  const [scanComplete, setScanComplete] = useState(false)
 
   // Get from store
   const { 
@@ -20,25 +24,39 @@ export default function DockerImagesPage() {
     setCurrentBundle,
   } = useBundleStore()
 
-  // Initialize images from store or use mock data
+  // Trigger scan on mount
   useEffect(() => {
-    if (selectedDockerImages.length === 0) {
-      // Initialize with mock data
-      const mockImages: DockerImage[] = [
-        { id: '1', name: 'nginx', tag: '1.25.4', size: '142 MB', selected: false },
-        { id: '2', name: 'postgres', tag: '15', size: '328 MB', selected: false },
-        { id: '3', name: 'redis', tag: '7.2', size: '116 MB', selected: false },
-        { id: '4', name: 'node', tag: '20-alpine', size: '175 MB', selected: false },
-        { id: '5', name: 'python', tag: '3.11-slim', size: '125 MB', selected: false },
-        { id: '6', name: 'mongodb', tag: '7.0', size: '685 MB', selected: false },
-        { id: '7', name: 'mysql', tag: '8.0', size: '542 MB', selected: false },
-      ]
-      setSelectedDockerImages(mockImages)
-      setImages(mockImages)
-    } else {
-      setImages(selectedDockerImages)
+    if (!scanComplete && selectedDockerImages.length === 0) {
+      const performScan = async () => {
+        setIsScanning(true)
+        
+        // Subscribe to IPC events
+        mockIPC.onEvent((event) => {
+          if (event.type === 'result' && event.stepId === 'scan-docker' && event.state === 'success') {
+            const data = event.data as DockerScanResult
+            
+            // Convert scan results to store format
+            const images = data.images.map(img => ({
+              id: img.id,
+              name: img.repository,
+              tag: img.tag,
+              size: img.size,
+              selected: false
+            }))
+            
+            setSelectedDockerImages(images)
+            setIsScanning(false)
+            setScanComplete(true)
+          }
+        })
+        
+        // Start the scan
+        await mockIPC.scanDocker()
+      }
+
+      performScan()
     }
-  }, [selectedDockerImages.length, setSelectedDockerImages, selectedDockerImages])
+  }, [scanComplete, selectedDockerImages.length, setSelectedDockerImages])
 
   const handleToggleImage = (id: string) => {
     setImages(prev =>
@@ -182,6 +200,19 @@ export default function DockerImagesPage() {
           </div>
         )}
 
+        {/* Scanning State */}
+        {isScanning && (
+          <div className="card p-8 text-center">
+            <Loader2 className="w-16 h-16 text-accent-500 mx-auto mb-4 animate-spin" />
+            <h2 className="text-2xl font-bold mb-2">Scanning Docker Images</h2>
+            <p className="text-primary-300">Connecting to Docker daemon and fetching images...</p>
+          </div>
+        )}
+
+        {/* Results - Only show after scanning */}
+        {!isScanning && scanComplete && (
+          <>
+
         {/* Header */}
         <div className="mb-8">
           <button
@@ -221,6 +252,8 @@ export default function DockerImagesPage() {
             Back
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   )

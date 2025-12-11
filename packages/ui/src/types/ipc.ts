@@ -9,6 +9,10 @@
 
 export type IPCCommand = 
   | StartScanCommand
+  | ScanVSCodeCommand
+  | ScanDockerCommand
+  | ScanDatabaseCommand
+  | CreateBundleCommand
   | StartSetupCommand
   | AbortCommand
   | ResumeCommand
@@ -26,6 +30,32 @@ export interface StartScanCommand {
     devtools: boolean
     environment: boolean
     packages: boolean
+  }
+}
+
+export interface ScanVSCodeCommand {
+  cmd: 'scanVSCode'
+}
+
+export interface ScanDockerCommand {
+  cmd: 'scanDocker'
+}
+
+export interface ScanDatabaseCommand {
+  cmd: 'scanDatabase'
+}
+
+export interface CreateBundleCommand {
+  cmd: 'createBundle'
+  options: {
+    includeSecrets: boolean
+    encryptionPassphrase?: string
+    devtools: boolean
+    environment: boolean
+    packages: boolean
+    selectedVSCodeProfiles: string[] // IDs of selected profiles
+    selectedDockerImages: string[] // IDs of selected images
+    selectedDatabases: string[] // IDs of selected databases
   }
 }
 
@@ -109,6 +139,55 @@ export interface ResultEvent {
   state: 'success' | 'failed'
   duration?: number
   error?: string
+  data?: unknown // Generic data payload for scan results
+}
+
+export interface VSCodeScanResult {
+  type: 'vscode-scan-result'
+  profiles: Array<{
+    id: string
+    name: string
+    extensions: Array<{
+      id: string
+      name: string
+      version: string
+    }>
+    settingsCount: number
+    keybindingsCount: number
+  }>
+}
+
+export interface DockerScanResult {
+  type: 'docker-scan-result'
+  images: Array<{
+    id: string
+    repository: string
+    tag: string
+    size: string
+    created: string
+  }>
+}
+
+export interface DatabaseScanResult {
+  type: 'database-scan-result'
+  connections: Array<{
+    id: string
+    name: string
+    type: 'mongodb' | 'mysql' | 'postgresql' | 'redis' | 'sqlserver'
+    host: string
+    port: number
+    database?: string
+    source: 'compass' | 'workbench' | 'pgadmin' | 'other'
+  }>
+}
+
+export interface BundleCreatedResult {
+  type: 'bundle-created'
+  bundlePath: string
+  bundleName: string
+  size: number
+  encrypted: boolean
+  itemCount: number
 }
 
 export interface CompleteEvent {

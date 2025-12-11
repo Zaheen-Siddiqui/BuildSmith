@@ -1,10 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
+import { mockIPC } from '../../services/mockIPC'
+import { DatabaseScanResult } from '../../types/ipc'
 
 export default function DatabaseConnectionsPage() {
   const navigate = useNavigate()
+  const [isScanning, setIsScanning] = useState(false)
+  const [scanComplete, setScanComplete] = useState(false)
 
   // Get from store
   const { 
@@ -19,41 +23,41 @@ export default function DatabaseConnectionsPage() {
     setCurrentBundle,
   } = useBundleStore()
 
-  // Initialize databases from store or use mock data
+  // Trigger scan on mount
   useEffect(() => {
-    if (selectedDatabases.length === 0) {
-      // Initialize with mock data
-      setSelectedDatabases([
-        {
-          id: '1',
-          name: 'Production MongoDB',
-          type: 'mongodb',
-          host: 'prod-mongo.example.com',
-          port: 27017,
-          database: 'main_db',
-          selected: false,
-        },
-        {
-          id: '2',
-          name: 'Dev PostgreSQL',
-          type: 'postgresql',
-          host: 'localhost',
-          port: 5432,
-          database: 'dev_db',
-          selected: false,
-        },
-        {
-          id: '3',
-          name: 'MySQL Analytics',
-          type: 'mysql',
-          host: 'analytics.example.com',
-          port: 3306,
-          database: 'analytics',
-          selected: false,
-        },
-      ])
+    if (!scanComplete && selectedDatabases.length === 0) {
+      const performScan = async () => {
+        setIsScanning(true)
+        
+        // Subscribe to IPC events
+        mockIPC.onEvent((event) => {
+          if (event.type === 'result' && event.stepId === 'scan-database' && event.state === 'success') {
+            const data = event.data as DatabaseScanResult
+            
+            // Convert scan results to store format
+            const connections = data.connections.map(conn => ({
+              id: conn.id,
+              name: conn.name,
+              type: conn.type as 'mongodb' | 'mysql' | 'postgresql',
+              host: conn.host,
+              port: conn.port,
+              database: conn.database || '',
+              selected: false
+            }))
+            
+            setSelectedDatabases(connections)
+            setIsScanning(false)
+            setScanComplete(true)
+          }
+        })
+        
+        // Start the scan
+        await mockIPC.scanDatabase()
+      }
+
+      performScan()
     }
-  }, [selectedDatabases.length, setSelectedDatabases])
+  }, [scanComplete, selectedDatabases.length, setSelectedDatabases])
 
   const handleSaveAndContinue = () => {
     // Mark database config as complete
@@ -171,9 +175,21 @@ export default function DatabaseConnectionsPage() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="mb-8">
-          <button
+        {/* Scanning State */}
+        {isScanning && (
+          <div className="card p-8 text-center">
+            <Loader2 className="w-16 h-16 text-accent-500 mx-auto mb-4 animate-spin" />
+            <h2 className="text-2xl font-bold mb-2">Scanning Database Connections</h2>
+            <p className="text-primary-300">Checking MongoDB Compass, MySQL Workbench, and other database tools...</p>
+          </div>
+        )}
+
+        {/* Results - Only show after scanning */}
+        {!isScanning && scanComplete && (
+          <>
+            {/* Header */}
+            <div className="mb-8">
+              <button
             onClick={() => navigate('/scan')}
             className="flex items-center text-primary-300 hover:text-white mb-4 transition-colors"
           >
@@ -261,6 +277,8 @@ export default function DatabaseConnectionsPage() {
             Back
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   )
