@@ -1,102 +1,381 @@
 # BuildSmith Backend - Database Module
 # Handles database connection and backup operations
 
-Import-Module "$PSScriptRoot/common.psm1" -Force
+# Note: common.ps1 functions are loaded by parent scripts
 
 function Get-DatabaseConnections {
     <#
     .SYNOPSIS
-        Scan for database connections (MongoDB Compass, etc.)
+        Scan for database connections (MongoDB Compass, MySQL Workbench, etc.)
+    .DESCRIPTION
+        Scans common database GUI tools for saved connections
     #>
     param()
     
-    $stepId = "scan-databases"
-    
     try {
-        Emit-Status -StepId $stepId -State "running" -Message "Scanning database connections..."
-        
         $connections = @()
         
         # Check for MongoDB Compass connections
-        $compassConfig = "$env:APPDATA\MongoDB Compass\Connections"
-        if (Test-Path $compassConfig) {
-            Emit-Log -StepId $stepId -Level "info" -Text "Found MongoDB Compass connections"
-            # In real implementation, parse Compass config
-            $connections += @{ type = "mongodb"; source = "compass" }
+        $compassConfigPath = "$env:APPDATA\MongoDB Compass Community\Connections"
+        if (Test-Path $compassConfigPath) {
+            try {
+                $compassConnections = Get-Content $compassConfigPath -Raw | ConvertFrom-Json
+                foreach ($conn in $compassConnections.connections) {
+                    $connections += @{
+                        type = "mongodb"
+                        source = "compass"
+                        name = $conn.name
+                        host = $conn.hostname
+                        port = $conn.port
+                        database = $conn.database
+                    }
+                }
+            } catch {
+                Write-Warning "Failed to parse MongoDB Compass connections: $($_.Exception.Message)"
+            }
         }
         
-        Emit-Log -StepId $stepId -Level "info" -Text "Found $($connections.Count) database connections"
-        Emit-Result -StepId $stepId -State "success" -Duration 1
+        # Check for MySQL Workbench connections
+        $mysqlConfigPath = "$env:APPDATA\MySQL\Workbench\connections.xml"
+        if (Test-Path $mysqlConfigPath) {
+            try {
+                [xml]$mysqlConfig = Get-Content $mysqlConfigPath
+                foreach ($conn in $mysqlConfig.data.value) {
+                    $connName = $conn.SelectSingleNode("//value[@key='name']").'#text'
+                    $connHost = $conn.SelectSingleNode("//value[@key='hostName']").'#text'
+                    $connPort = $conn.SelectSingleNode("//value[@key='port']").'#text'
+                    
+                    $connections += @{
+                        type = "mysql"
+                        source = "workbench"
+                        name = $connName
+                        host = $connHost
+                        port = $connPort
+                    }
+                }
+            } catch {
+                Write-Warning "Failed to parse MySQL Workbench connections: $($_.Exception.Message)"
+            }
+        }
         
         return $connections
     }
     catch {
-        Emit-Log -StepId $stepId -Level "error" -Text "Error scanning databases: $($_.Exception.Message)"
-        Emit-Result -StepId $stepId -State "failed" -Error $_.Exception.Message
+        Write-Warning "Error scanning databases: $($_.Exception.Message)"
         return @()
     }
 }
 
-function Export-DatabaseConnections {
+function Export-MongoConnections {
     <#
     .SYNOPSIS
-        Export database connections to JSON file
+        Export MongoDB Compass connections to JSON file
+    .PARAMETER OutputPath
+        Path to save the connections JSON file
     #>
     param(
         [Parameter(Mandatory=$true)]
-        [string]$OutputPath
+        [string]$OutputPath,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$StepId = "export-mongo-connections"
     )
     
-    $stepId = "export-db-connections"
-    
     try {
-        Emit-Status -StepId $stepId -State "running" -Message "Exporting database connections..."
+        Emit-Status -StepId $StepId -State "running" -Message "Exporting MongoDB connections..."
+        Emit-Log -StepId $StepId -Level "info" -Text "Scanning MongoDB Compass connections..."
         
-        $connections = Get-DatabaseConnections
+        $compassConfigPath = "$env:APPDATA\MongoDB Compass Community\Connections"
         
-        $connections | ConvertTo-Json -Depth 10 | Out-File $OutputPath -Encoding UTF8
+        if (-not (Test-Path $compassConfigPath)) {
+            Emit-Log -StepId $StepId -Level "warn" -Text "MongoDB Compass connections not found"
+            Emit-Status -StepId $StepId -State "complete" -Message "No connections found"
+            return $null
+        }
         
-        Emit-Log -StepId $stepId -Level "success" -Text "Connections exported to $OutputPath"
-        Emit-Result -StepId $stepId -State "success" -Duration 1
+        # Read and parse Compass connections
+        $compassData = Get-Content $compassConfigPath -Raw | ConvertFrom-Json
         
-        return $true
+        # Export to output path
+        $compassData | ConvertTo-Json -Depth 10 | Out-File $OutputPath -Encoding UTF8
+        
+        $connCount = $compassData.connections.Count
+        Emit-Log -StepId $StepId -Level "success" -Text "Exported $connCount MongoDB connections"
+        Emit-Status -StepId $StepId -State "complete" -Message "Export complete"
+        
+        return @{
+            success = $true
+            count = $connCount
+            path = $OutputPath
+        }
     }
     catch {
-        Emit-Log -StepId $stepId -Level "error" -Text "Error exporting connections: $($_.Exception.Message)"
-        Emit-Result -StepId $stepId -State "failed" -Error $_.Exception.Message
-        return $false
+        Emit-Log -StepId $StepId -Level "error" -Text "Error exporting MongoDB connections: $($_.Exception.Message)"
+        Emit-Status -StepId $StepId -State "failed" -Message "Export failed"
+        return @{
+            success = $false
+            error = $_.Exception.Message
+        }
     }
 }
 
-function Restore-DatabaseConnections {
+function Import-CompassConnections {
     <#
     .SYNOPSIS
-        Restore database connections from JSON file
+        Import MongoDB Compass connections from JSON file
+    .PARAMETER ConnectionsFile
+        Path to the connections JSON file
+    .PARAMETER StepId
+        Step identifier for event emission
     #>
     param(
         [Parameter(Mandatory=$true)]
-        [string]$ConnectionsFile
+        [string]$ConnectionsFile,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$StepId = "import-compass-connections"
     )
     
-    $stepId = "restore-db-connections"
-    
     try {
-        Emit-Status -StepId $stepId -State "running" -Message "Restoring database connections..."
-        Emit-Log -StepId $stepId -Level "info" -Text "Loading connections from $ConnectionsFile"
+        Emit-Status -StepId $StepId -State "running" -Message "Importing MongoDB Compass connections..."
+        Emit-Log -StepId $StepId -Level "info" -Text "Reading connections from $ConnectionsFile"
         
-        # In real implementation, parse and import connections
-        # This is a stub
+        if (-not (Test-Path $ConnectionsFile)) {
+            throw "Connections file not found: $ConnectionsFile"
+        }
         
-        Emit-Log -StepId $stepId -Level "success" -Text "Connections restored"
-        Emit-Result -StepId $stepId -State "success" -Duration 2
+        # Read connections data
+        $connectionsData = Get-Content $ConnectionsFile -Raw | ConvertFrom-Json
         
-        return $true
+        # Target path for Compass connections
+        $compassConfigPath = "$env:APPDATA\MongoDB Compass Community\Connections"
+        $compassDir = Split-Path $compassConfigPath -Parent
+        
+        # Create directory if it doesn't exist
+        if (-not (Test-Path $compassDir)) {
+            New-Item -ItemType Directory -Path $compassDir -Force | Out-Null
+            Emit-Log -StepId $StepId -Level "debug" -Text "Created MongoDB Compass config directory"
+        }
+        
+        # Merge with existing connections if present
+        if (Test-Path $compassConfigPath) {
+            Emit-Log -StepId $StepId -Level "info" -Text "Merging with existing connections"
+            $existingData = Get-Content $compassConfigPath -Raw | ConvertFrom-Json
+            
+            # Merge connections (avoid duplicates by connection name)
+            $existingNames = @($existingData.connections | ForEach-Object { $_.name })
+            foreach ($conn in $connectionsData.connections) {
+                if ($existingNames -notcontains $conn.name) {
+                    $existingData.connections += $conn
+                }
+            }
+            
+            $connectionsData = $existingData
+        }
+        
+        # Write connections file
+        $connectionsData | ConvertTo-Json -Depth 10 | Out-File $compassConfigPath -Encoding UTF8
+        
+        $connCount = $connectionsData.connections.Count
+        Emit-Log -StepId $StepId -Level "success" -Text "Imported $connCount MongoDB connections"
+        Emit-Status -StepId $StepId -State "complete" -Message "Import complete"
+        
+        return @{
+            success = $true
+            count = $connCount
+        }
     }
     catch {
-        Emit-Log -StepId $stepId -Level "error" -Text "Error restoring connections: $($_.Exception.Message)"
-        Emit-Result -StepId $stepId -State "failed" -Error $_.Exception.Message
-        return $false
+        Emit-Log -StepId $StepId -Level "error" -Text "Error importing connections: $($_.Exception.Message)"
+        Emit-Status -StepId $StepId -State "failed" -Message "Import failed"
+        return @{
+            success = $false
+            error = $_.Exception.Message
+        }
     }
 }
 
-Export-ModuleMember -Function Get-DatabaseConnections, Export-DatabaseConnections, Restore-DatabaseConnections
+function Export-MongoDump {
+    <#
+    .SYNOPSIS
+        Create MongoDB dump for specified database
+    .PARAMETER ConnectionString
+        MongoDB connection string
+    .PARAMETER Database
+        Database name to dump
+    .PARAMETER OutputPath
+        Directory to save the dump
+    .PARAMETER StepId
+        Step identifier for event emission
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ConnectionString,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Database,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$OutputPath,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$StepId = "export-mongo-dump"
+    )
+    
+    try {
+        Emit-Status -StepId $StepId -State "running" -Message "Creating MongoDB dump..."
+        Emit-Log -StepId $StepId -Level "info" -Text "Dumping database: $Database"
+        
+        # Check if mongodump is available
+        $mongoDump = Get-Command "mongodump" -ErrorAction SilentlyContinue
+        if (-not $mongoDump) {
+            throw "mongodump not found. Please install MongoDB Database Tools"
+        }
+        
+        # Create output directory
+        if (-not (Test-Path $OutputPath)) {
+            New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
+        }
+        
+        # Build mongodump command
+        $dumpArgs = @(
+            "--uri=`"$ConnectionString`""
+            "--db=$Database"
+            "--out=`"$OutputPath`""
+        )
+        
+        Emit-Log -StepId $StepId -Level "debug" -Text "Running mongodump..."
+        
+        # Execute mongodump
+        $process = Start-Process -FilePath "mongodump" `
+            -ArgumentList $dumpArgs `
+            -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput "$env:TEMP\mongodump-out.log" `
+            -RedirectStandardError "$env:TEMP\mongodump-err.log"
+        
+        if ($process.ExitCode -eq 0) {
+            $dumpSize = (Get-ChildItem $OutputPath -Recurse | Measure-Object -Property Length -Sum).Sum
+            $dumpSizeMB = [math]::Round($dumpSize / 1MB, 2)
+            
+            Emit-Log -StepId $StepId -Level "success" -Text "Dump created: $dumpSizeMB MB"
+            Emit-Status -StepId $StepId -State "complete" -Message "Dump complete"
+            
+            return @{
+                success = $true
+                path = $OutputPath
+                size = $dumpSize
+            }
+        }
+        else {
+            $errorLog = Get-Content "$env:TEMP\mongodump-err.log" -Raw
+            throw "mongodump failed (exit code: $($process.ExitCode)): $errorLog"
+        }
+    }
+    catch {
+        Emit-Log -StepId $StepId -Level "error" -Text "Error creating dump: $($_.Exception.Message)"
+        Emit-Status -StepId $StepId -State "failed" -Message "Dump failed"
+        return @{
+            success = $false
+            error = $_.Exception.Message
+        }
+    }
+    finally {
+        # Cleanup temp logs
+        Remove-Item "$env:TEMP\mongodump-*.log" -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Restore-MongoDump {
+    <#
+    .SYNOPSIS
+        Restore MongoDB dump to specified database
+    .PARAMETER ConnectionString
+        MongoDB connection string
+    .PARAMETER Database
+        Target database name
+    .PARAMETER DumpPath
+        Path to the dump directory
+    .PARAMETER StepId
+        Step identifier for event emission
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ConnectionString,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Database,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$DumpPath,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$StepId = "restore-mongo-dump"
+    )
+    
+    try {
+        Emit-Status -StepId $StepId -State "running" -Message "Restoring MongoDB dump..."
+        Emit-Log -StepId $StepId -Level "info" -Text "Restoring to database: $Database"
+        
+        # Check if mongorestore is available
+        $mongoRestore = Get-Command "mongorestore" -ErrorAction SilentlyContinue
+        if (-not $mongoRestore) {
+            throw "mongorestore not found. Please install MongoDB Database Tools"
+        }
+        
+        # Verify dump path exists
+        if (-not (Test-Path $DumpPath)) {
+            throw "Dump path not found: $DumpPath"
+        }
+        
+        # Build mongorestore command
+        $restoreArgs = @(
+            "--uri=`"$ConnectionString`""
+            "--db=$Database"
+            "--dir=`"$DumpPath\$Database`""
+            "--drop"  # Drop existing collections before restore
+        )
+        
+        Emit-Log -StepId $StepId -Level "debug" -Text "Running mongorestore..."
+        
+        # Execute mongorestore
+        $process = Start-Process -FilePath "mongorestore" `
+            -ArgumentList $restoreArgs `
+            -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput "$env:TEMP\mongorestore-out.log" `
+            -RedirectStandardError "$env:TEMP\mongorestore-err.log"
+        
+        if ($process.ExitCode -eq 0) {
+            $outLog = Get-Content "$env:TEMP\mongorestore-out.log" -Raw
+            
+            # Parse output for collection count
+            $collectionMatches = [regex]::Matches($outLog, "restoring (\w+)\.(\w+)")
+            $collectionCount = $collectionMatches.Count
+            
+            Emit-Log -StepId $StepId -Level "success" -Text "Restored $collectionCount collections"
+            Emit-Status -StepId $StepId -State "complete" -Message "Restore complete"
+            
+            return @{
+                success = $true
+                collections = $collectionCount
+            }
+        }
+        else {
+            $errorLog = Get-Content "$env:TEMP\mongorestore-err.log" -Raw
+            throw "mongorestore failed (exit code: $($process.ExitCode)): $errorLog"
+        }
+    }
+    catch {
+        Emit-Log -StepId $StepId -Level "error" -Text "Error restoring dump: $($_.Exception.Message)"
+        Emit-Status -StepId $StepId -State "failed" -Message "Restore failed"
+        return @{
+            success = $false
+            error = $_.Exception.Message
+        }
+    }
+    finally {
+        # Cleanup temp logs
+        Remove-Item "$env:TEMP\mongorestore-*.log" -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Export-ModuleMember -Function Get-DatabaseConnections, Export-MongoConnections, Import-CompassConnections, Export-MongoDump, Restore-MongoDump

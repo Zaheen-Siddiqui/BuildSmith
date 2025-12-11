@@ -40,6 +40,7 @@ try {
         apps = @()
         dockerImages = @()
         vscodeProfile = $null
+        mongoConnections = $null
         dbConnections = @()
         pathEntries = @()
         envVars = @{}
@@ -92,6 +93,16 @@ try {
         Emit-Status -StepId "scan-databases" -State "running" -Message "Scanning database connections..."
         Emit-Log -StepId "scan-databases" -Level "info" -Text "Scanning database connections..."
         
+        # Export MongoDB Compass connections
+        $mongoConnectionsFile = Join-Path $bundleDir "mongo-connections.json"
+        $mongoResult = Export-MongoConnections -OutputPath $mongoConnectionsFile -StepId "scan-databases"
+        
+        if ($mongoResult -and $mongoResult.success) {
+            $manifest.mongoConnections = "mongo-connections.json"
+            Emit-Log -StepId "scan-databases" -Level "success" -Text "Found $($mongoResult.count) MongoDB connections"
+        }
+        
+        # Scan other database connections
         $dbConnections = Get-DatabaseConnections
         if ($dbConnections -and $dbConnections.Count -gt 0) {
             $dbFile = Join-Path $bundleDir "db-connections.json"
@@ -99,11 +110,9 @@ try {
             $manifest.dbConnections = "db-connections.json"
             
             Emit-Log -StepId "scan-databases" -Level "success" -Text "Found $($dbConnections.Count) database connections"
-            Emit-Status -StepId "scan-databases" -State "complete" -Message "Database scan complete"
-        } else {
-            Emit-Log -StepId "scan-databases" -Level "info" -Text "No database connections found"
-            Emit-Status -StepId "scan-databases" -State "complete" -Message "No database connections found"
         }
+        
+        Emit-Status -StepId "scan-databases" -State "complete" -Message "Database scan complete"
     }
     
     # Scan Environment

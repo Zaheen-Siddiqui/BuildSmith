@@ -19,6 +19,9 @@ $WarningPreference = "SilentlyContinue"
 # Load encryption module
 Import-Module "$PSScriptRoot/modules/encryption.psm1" -Force
 
+# Load database module
+Import-Module "$PSScriptRoot/modules/db.psm1" -Force
+
 $ErrorActionPreference = "Continue"
 
 # Define helper functions for operations not yet in modules
@@ -170,6 +173,18 @@ try {
             # In real implementation, check if we should pull or load from tar
             Install-DockerImage -ImageName $img.image
             # TODO: Check for errors instead of capturing return value
+        }
+    }
+    
+    # Restore MongoDB Compass connections
+    if ($SelectedItems -contains "databases" -and $manifest.mongoConnections) {
+        Emit-Log -StepId "setup" -Level "info" -Text "Restoring MongoDB Compass connections..."
+        $mongoFile = Join-Path $extractDir $manifest.mongoConnections
+        
+        if (Test-Path $mongoFile) {
+            Import-CompassConnections -ConnectionsFile $mongoFile
+        } else {
+            Emit-Log -StepId "setup" -Level "warn" -Text "MongoDB connections file not found: $mongoFile"
         }
     }
     
