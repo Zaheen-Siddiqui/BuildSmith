@@ -26,36 +26,37 @@ export default function VSCodeProfilesPage() {
   // Trigger scan on mount
   useEffect(() => {
     if (!scanComplete && selectedVSCodeProfiles.length === 0) {
+      const performScan = async () => {
+        setIsScanning(true)
+        
+        // Subscribe to IPC events
+        mockIPC.onEvent((event) => {
+          if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
+            const data = event.data as VSCodeScanResult
+            
+            // Convert scan results to store format
+            const profiles = data.profiles.map(profile => ({
+              id: profile.id,
+              name: profile.name,
+              extensions: profile.extensions.map(ext => ext.name),
+              settings: {},
+              selected: false
+            }))
+            
+            setSelectedVSCodeProfiles(profiles)
+            setIsScanning(false)
+            setScanComplete(true)
+          }
+        })
+        
+        // Start the scan
+        await mockIPC.scanVSCode()
+      }
+
       performScan()
     }
-  }, [])
+  }, [scanComplete, selectedVSCodeProfiles.length, setSelectedVSCodeProfiles])
 
-  const performScan = async () => {
-    setIsScanning(true)
-    
-    // Subscribe to IPC events
-    mockIPC.onEvent((event) => {
-      if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
-        const data = event.data as VSCodeScanResult
-        
-        // Convert scan results to store format
-        const profiles = data.profiles.map(profile => ({
-          id: profile.id,
-          name: profile.name,
-          extensions: profile.extensions.map(ext => ext.name),
-          settings: {},
-          selected: false
-        }))
-        
-        setSelectedVSCodeProfiles(profiles)
-        setIsScanning(false)
-        setScanComplete(true)
-      }
-    })
-    
-    // Start the scan
-    await mockIPC.scanVSCode()
-  }
 
   const handleSaveAndContinue = () => {
     // Mark vscode config as complete

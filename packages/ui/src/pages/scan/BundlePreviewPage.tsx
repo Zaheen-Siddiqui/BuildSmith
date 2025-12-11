@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save } from 'lucide-react'
+import { ArrowLeft, Download, Edit2, ChevronRight, ChevronDown, File, Folder, Save, Loader2 } from 'lucide-react'
 import { useBundleStore } from '../../store/bundleStore'
 import { createBundle, downloadBlob } from '../../utils/bundleUtils'
+import { mockIPC } from '../../services/mockIPC'
+import { BundleCreatedResult } from '../../types/ipc'
 
 interface BundleItem {
   name: string
@@ -16,8 +18,64 @@ export default function BundlePreviewPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']))
   const [editingManifest, setEditingManifest] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isCreatingBundle, setIsCreatingBundle] = useState(false)
+  const [bundleCreated, setBundleCreated] = useState(false)
   
-  const { currentBundle, manifestItems, scanSettings, updateManifestItem, setExportPath, resetScan, resetBundle } = useBundleStore()
+  const { 
+    currentBundle, 
+    manifestItems, 
+    scanSettings, 
+    updateManifestItem, 
+    setExportPath, 
+    setCurrentBundle,
+    resetScan, 
+    resetBundle,
+    selectedVSCodeProfiles,
+    selectedDockerImages,
+    selectedDatabases
+  } = useBundleStore()
+
+  // Trigger bundle creation on mount
+  useEffect(() => {
+    const performBundleCreation = async () => {
+      setIsCreatingBundle(true)
+      
+      // Subscribe to IPC events
+      mockIPC.onEvent((event) => {
+        if (event.type === 'result' && event.stepId === 'create-bundle' && event.state === 'success') {
+          const data = event.data as BundleCreatedResult
+          
+          setCurrentBundle({
+            id: Date.now().toString(),
+            name: data.bundleName,
+            path: data.bundlePath,
+            createdAt: new Date().toISOString(),
+            description: 'Auto-generated development environment bundle',
+            encrypted: data.encrypted,
+          })
+          
+          setBundleCreated(true)
+          setIsCreatingBundle(false)
+        }
+      })
+      
+      // Start bundle creation
+      await mockIPC.createBundle({
+        includeSecrets: scanSettings.includeSecrets,
+        encryptionPassphrase: scanSettings.encryptionPassphrase,
+        devtools: scanSettings.devtools,
+        environment: scanSettings.environment,
+        packages: scanSettings.packages,
+        selectedVSCodeProfiles: selectedVSCodeProfiles.filter(p => p.selected).map(p => p.id),
+        selectedDockerImages: selectedDockerImages.filter(img => img.selected).map(img => img.id),
+        selectedDatabases: selectedDatabases.filter(db => db.selected).map(db => db.id)
+      })
+    }
+
+    if (!bundleCreated && !isCreatingBundle) {
+      performBundleCreation()
+    }
+  }, [bundleCreated, isCreatingBundle, scanSettings, selectedVSCodeProfiles, selectedDockerImages, selectedDatabases, setCurrentBundle])
   
   // Generate bundle structure from manifest items
   const generateBundleStructure = (): BundleItem[] => {
@@ -204,27 +262,6 @@ export default function BundlePreviewPage() {
     )
   }
 
-  if (!currentBundle) {
-    return (
-      <div className="min-h-screen p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="card p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4">No Bundle Data</h2>
-            <p className="text-primary-200 mb-6">
-              Please start a scan first to generate bundle data.
-            </p>
-            <button
-              onClick={() => navigate('/scan')}
-              className="btn-accent"
-            >
-              Go to Scan
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
@@ -239,143 +276,161 @@ export default function BundlePreviewPage() {
           </button>
           <h1 className="text-4xl font-bold mb-2">Bundle Preview</h1>
           <p className="text-primary-200">
-            Review and edit your bundle before exporting
+            Review your bundle contents before exporting
           </p>
         </div>
 
-        {/* Bundle Info */}
-        <div className="card p-6 mb-6">
-          <h2 className="text-2xl font-bold mb-4">Bundle Information</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-primary-300">Name</div>
-              <div className="font-semibold">{currentBundle.name}</div>
-            </div>
-            <div>
-              <div className="text-sm text-primary-300">Created</div>
-              <div className="font-semibold">{new Date(currentBundle.createdAt).toLocaleString()}</div>
-            </div>
-            <div>
-              <div className="text-sm text-primary-300">Total Items</div>
-              <div className="font-semibold">{manifestItems.filter(i => i.included).length} items</div>
-            </div>
-            <div>
-              <div className="text-sm text-primary-300">Encryption</div>
-              <div className="font-semibold">{currentBundle.encrypted ? '🔒 Enabled' : '🔓 Disabled'}</div>
+        {/* Creating Bundle State */}
+        {isCreatingBundle && (
+          <div className="card p-8 text-center mb-6">
+            <Loader2 className="w-16 h-16 text-accent-500 mx-auto mb-4 animate-spin" />
+            <h2 className="text-2xl font-bold mb-2">Creating Bundle</h2>
+            <p className="text-primary-300 mb-4">Scanning DevOps tools, environment variables, and package dependencies...</p>
+            <div className="text-sm text-primary-400">
+              This may take a few moments
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Bundle Structure */}
-          <div className="card p-6">
-            <h3 className="text-xl font-bold mb-4">Bundle Structure</h3>
-            <div className="bg-black/20 rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
-              {bundleStructure.map(item => renderItem(item))}
-            </div>
-            <div className="mt-4 pt-4 border-t border-white/10">
-              <div className="text-sm text-primary-300">
-                Estimated size: ~{manifestItems.filter(i => i.type === 'image' && i.included).length * 200 + 100} MB
+        {/* Bundle Created - Show Preview and Export */}
+        {bundleCreated && !isCreatingBundle && (
+          <>
+            {/* Bundle Info */}
+            <div className="card p-6 mb-6">
+              <h2 className="text-2xl font-bold mb-4">Bundle Information</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-primary-300">Name</div>
+                  <div className="font-semibold">{currentBundle?.name}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-primary-300">Created</div>
+                  <div className="font-semibold">{currentBundle ? new Date(currentBundle.createdAt).toLocaleString() : ''}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-primary-300">Total Items</div>
+                  <div className="font-semibold">{manifestItems.filter(i => i.included).length} items</div>
+                </div>
+                <div>
+                  <div className="text-sm text-primary-300">Encryption</div>
+                  <div className="font-semibold">{currentBundle?.encrypted ? '🔒 Enabled' : '🔓 Disabled'}</div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Manifest Editor */}
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">Manifest Items</h3>
-              <button
-                onClick={() => setEditingManifest(!editingManifest)}
-                className="text-sm text-accent-400 hover:text-accent-300 flex items-center gap-1"
-              >
-                {editingManifest ? (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Save
-                  </>
-                ) : (
-                  <>
-                    <Edit2 className="w-4 h-4" />
-                    Edit
-                  </>
-                )}
-              </button>
-            </div>
-            
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {manifestItems.map((item, index) => (
-                <div 
-                  key={index}
-                  className={`p-3 rounded border transition-colors ${
-                    item.included 
-                      ? 'border-accent-600/30 bg-accent-900/10' 
-                      : 'border-primary-700/30 bg-white/5 opacity-50'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {editingManifest && (
-                      <input
-                        type="checkbox"
-                        checked={item.included}
-                        onChange={(e) => updateManifestItem(index, { included: e.target.checked })}
-                        className="mt-1 w-4 h-4 accent-accent-600"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold truncate">{item.name}</span>
-                        <span className="px-2 py-0.5 text-xs rounded bg-primary-800 text-primary-200">
-                          {item.type}
-                        </span>
-                      </div>
-                      <div className="text-sm text-primary-400">v{item.version}</div>
-                      {item.source && (
-                        <div className="text-xs text-primary-500 truncate">{item.source}</div>
-                      )}
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bundle Structure */}
+              <div className="card p-6">
+                <h3 className="text-xl font-bold mb-4">Bundle Structure</h3>
+                <div className="bg-black/20 rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
+                  {bundleStructure.map(item => renderItem(item))}
+                </div>
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <div className="text-sm text-primary-300">
+                    Estimated size: ~{manifestItems.filter(i => i.type === 'image' && i.included).length * 200 + 100} MB
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
+              </div>
 
-        {/* Export Section */}
-        <div className="card p-6 mt-6">
-          <h3 className="text-xl font-bold mb-4">Export Bundle</h3>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="block mb-2 font-semibold">Bundle will be downloaded as:</label>
-              <div className="bg-black/20 p-3 rounded font-mono text-sm">
-                {currentBundle.name}.zip
+              {/* Manifest Editor */}
+              <div className="card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold">Manifest Items</h3>
+                  <button
+                    onClick={() => setEditingManifest(!editingManifest)}
+                    className="text-sm text-accent-400 hover:text-accent-300 flex items-center gap-1"
+                  >
+                    {editingManifest ? (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Save
+                      </>
+                    ) : (
+                      <>
+                        <Edit2 className="w-4 h-4" />
+                        Edit
+                      </>
+                    )}
+                  </button>
+                </div>
+            
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {manifestItems.map((item, index) => (
+                    <div 
+                      key={index}
+                      className={`p-3 rounded border transition-colors ${
+                        item.included 
+                          ? 'border-accent-600/30 bg-accent-900/10' 
+                          : 'border-primary-700/30 bg-white/5 opacity-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {editingManifest && (
+                          <input
+                            type="checkbox"
+                            checked={item.included}
+                            onChange={(e) => updateManifestItem(index, { included: e.target.checked })}
+                            className="mt-1 w-4 h-4 accent-accent-600"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold truncate">{item.name}</span>
+                            <span className="px-2 py-0.5 text-xs rounded bg-primary-800 text-primary-200">
+                              {item.type}
+                            </span>
+                          </div>
+                          <div className="text-sm text-primary-400">v{item.version}</div>
+                          {item.source && (
+                            <div className="text-xs text-primary-500 truncate">{item.source}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-            <button
-              onClick={handleExportBundle}
-              disabled={isExporting}
-              className="btn-accent flex items-center gap-2"
-            >
-              <Download className="w-5 h-5" />
-              {isExporting ? 'Exporting...' : 'Export Bundle'}
-            </button>
-          </div>
-        </div>
 
-        {/* Bottom Actions */}
-        <div className="flex justify-between items-center mt-6">
-          <button
-            onClick={() => navigate('/scan')}
-            className="text-primary-300 hover:text-white transition-colors"
-          >
-            ← Back to Scan
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="btn-secondary"
-          >
-            Cancel
-          </button>
-        </div>
+            {/* Export Section */}
+            <div className="card p-6 mt-6">
+              <h3 className="text-xl font-bold mb-4">Export Bundle</h3>
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <label className="block mb-2 font-semibold">Bundle will be downloaded as:</label>
+                  <div className="bg-black/20 p-3 rounded font-mono text-sm">
+                    {currentBundle?.name || 'bundle'}.zip
+                  </div>
+                </div>
+                <button
+                  onClick={handleExportBundle}
+                  disabled={isExporting}
+                  className="btn-accent flex items-center gap-2"
+                >
+                  <Download className="w-5 h-5" />
+                  {isExporting ? 'Exporting...' : 'Export Bundle'}
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="flex justify-between items-center mt-6">
+              <button
+                onClick={() => navigate('/scan')}
+                className="text-primary-300 hover:text-white transition-colors"
+              >
+                ← Back to Scan
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          
+          </>
+        )}
       </div>
     </div>
   )
