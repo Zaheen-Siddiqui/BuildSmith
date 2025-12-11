@@ -193,13 +193,13 @@ export class IPCService {
    * Create bundle from selected items
    */
   async createBundle(options: {
-    selectedVSCodeProfiles?: string[]
-    selectedDockerImages?: string[]
-    selectedDatabases?: string[]
-    includeDevOps?: boolean
-    includeEnvironment?: boolean
-    includePackages?: boolean
-    includeSecrets?: boolean
+    selectedVSCodeProfiles: string[]
+    selectedDockerImages: string[]
+    selectedDatabases: string[]
+    devtools: boolean
+    environment: boolean
+    packages: boolean
+    includeSecrets: boolean
     encryptionPassphrase?: string
   }): Promise<void> {
     const command: IPCCommand = {
