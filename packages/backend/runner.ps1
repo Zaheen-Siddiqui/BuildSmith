@@ -230,6 +230,12 @@ while ($true) {
                 
                 Emit-Log -StepId "scan-devtools" -Level "success" -Text "Found $($devToolsData.Count) DevOps tools"
                 
+                # Debug: Log first tool data
+                if ($devToolsData.Count -gt 0) {
+                    $firstTool = $devToolsData[0]
+                    Emit-Log -StepId "scan-devtools" -Level "debug" -Text "First tool - id: $($firstTool.id), name: $($firstTool.name), command: $($firstTool.command)"
+                }
+                
                 # Emit result event
                 Emit-Event -Type "result" -StepId "scan-devtools" -State "success" -Data $result
             }
@@ -266,6 +272,16 @@ while ($true) {
                 }
                 
                 Emit-Log -StepId "scan-environment" -Level "success" -Text "Found $($envVars.Count) environment variables and $($pathEntries.Count) PATH entries"
+                
+                # Debug: Log first items
+                if ($envVars.Count -gt 0) {
+                    $firstVar = $envVars[0]
+                    Emit-Log -StepId "scan-environment" -Level "debug" -Text "First var - id: $($firstVar.id), name: $($firstVar.name), scope: $($firstVar.scope)"
+                }
+                if ($pathEntries.Count -gt 0) {
+                    $firstPath = $pathEntries[0]
+                    Emit-Log -StepId "scan-environment" -Level "debug" -Text "First path - id: $($firstPath.id), path: $($firstPath.path)"
+                }
                 
                 # Emit result event
                 Emit-Event -Type "result" -StepId "scan-environment" -State "success" -Data $result
