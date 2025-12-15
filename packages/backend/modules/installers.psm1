@@ -461,5 +461,146 @@ function Get-InstalledPackages {
     }
 }
 
+function Install-Package {
+    <#
+    .SYNOPSIS
+        Install a package using the appropriate package manager
+    .DESCRIPTION
+        Installs packages via npm, pip, winget, or chocolatey
+    .PARAMETER Name
+        The package name
+    .PARAMETER Manager
+        The package manager to use (npm, pip, winget, chocolatey)
+    .PARAMETER Version
+        The version to install (optional)
+    .OUTPUTS
+        Hashtable with success status
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Name,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("npm", "pip", "winget", "chocolatey")]
+        [string]$Manager,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Version
+    )
+    
+    try {
+        Emit-Log -StepId "setup-packages" -Level "info" -Text "Installing $Name via $Manager..."
+        
+        # Check if package manager is available
+        $managerPath = Get-Command $Manager -ErrorAction SilentlyContinue
+        if (-not $managerPath -and $Manager -eq "chocolatey") {
+            $managerPath = Get-Command choco -ErrorAction SilentlyContinue
+        }
+        
+        if (-not $managerPath) {
+            Emit-Log -StepId "setup-packages" -Level "error" -Text "$Manager is not installed on this system"
+            return @{
+                success = $false
+                error = "$Manager not found"
+            }
+        }
+        
+        # Install based on manager
+        switch ($Manager) {
+            "npm" {
+                $npmCmd = "npm install -g $Name"
+                if ($Version) {
+                    $npmCmd += "@$Version"
+                }
+                
+                Emit-Log -StepId "setup-packages" -Level "info" -Text "Running: $npmCmd"
+                $output = Invoke-Expression $npmCmd 2>&1
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Emit-Log -StepId "setup-packages" -Level "success" -Text "Successfully installed $Name"
+                    return @{
+                        success = $true
+                        package = $Name
+                        manager = "npm"
+                    }
+                } else {
+                    throw "npm install failed with exit code $LASTEXITCODE"
+                }
+            }
+            
+            "pip" {
+                $pipCmd = "pip install $Name"
+                if ($Version) {
+                    $pipCmd += "==$Version"
+                }
+                
+                Emit-Log -StepId "setup-packages" -Level "info" -Text "Running: $pipCmd"
+                $output = Invoke-Expression $pipCmd 2>&1
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Emit-Log -StepId "setup-packages" -Level "success" -Text "Successfully installed $Name"
+                    return @{
+                        success = $true
+                        package = $Name
+                        manager = "pip"
+                    }
+                } else {
+                    throw "pip install failed with exit code $LASTEXITCODE"
+                }
+            }
+            
+            "winget" {
+                # For winget, Name should be the package ID
+                $wingetCmd = "winget install --id $Name --exact --silent --accept-package-agreements --accept-source-agreements"
+                if ($Version) {
+                    $wingetCmd += " --version $Version"
+                }
+                
+                Emit-Log -StepId "setup-packages" -Level "info" -Text "Running: $wingetCmd"
+                $output = Invoke-Expression $wingetCmd 2>&1
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Emit-Log -StepId "setup-packages" -Level "success" -Text "Successfully installed $Name"
+                    return @{
+                        success = $true
+                        package = $Name
+                        manager = "winget"
+                    }
+                } else {
+                    throw "winget install failed with exit code $LASTEXITCODE"
+                }
+            }
+            
+            "chocolatey" {
+                $chocoCmd = "choco install $Name -y"
+                if ($Version) {
+                    $chocoCmd += " --version=$Version"
+                }
+                
+                Emit-Log -StepId "setup-packages" -Level "info" -Text "Running: $chocoCmd"
+                $output = Invoke-Expression $chocoCmd 2>&1
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Emit-Log -StepId "setup-packages" -Level "success" -Text "Successfully installed $Name"
+                    return @{
+                        success = $true
+                        package = $Name
+                        manager = "chocolatey"
+                    }
+                } else {
+                    throw "chocolatey install failed with exit code $LASTEXITCODE"
+                }
+            }
+        }
+    }
+    catch {
+        Emit-Log -StepId "setup-packages" -Level "error" -Text "Failed to install $Name`: $($_.Exception.Message)"
+        return @{
+            success = $false
+            error = $_.Exception.Message
+        }
+    }
+}
+
 # Export all public functions
-Export-ModuleMember -Function Download-File, Run-Installer, Add-ToPath, Test-Checksum, Get-InstalledPackages
+Export-ModuleMember -Function Download-File, Run-Installer, Add-ToPath, Test-Checksum, Get-InstalledPackages, Install-Package

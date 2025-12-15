@@ -299,6 +299,149 @@ while ($true) {
                 Emit-Event -Type "result" -StepId "scan-packages" -State "success" -Data $result
             }
             
+            "setupDevTools" {
+                Emit-Log -StepId "setup-devtools" -Level "info" -Text "Setting up DevOps tools"
+                
+                # Load devtools module
+                Import-Module "$PSScriptRoot\modules\devtools.psm1" -Force
+                
+                $tools = $command.tools
+                $results = @()
+                $successCount = 0
+                $failedCount = 0
+                
+                foreach ($tool in $tools) {
+                    Emit-Log -StepId "setup-devtools" -Level "info" -Text "Installing $($tool.name)..."
+                    
+                    $result = Install-DevTool -Name $tool.name -Version $tool.version -Command $tool.command
+                    
+                    if ($result.success) {
+                        $successCount++
+                    } else {
+                        $failedCount++
+                    }
+                    
+                    $results += $result
+                }
+                
+                $overallSuccess = $failedCount -eq 0
+                
+                Emit-Log -StepId "setup-devtools" -Level "success" -Text "Installed $successCount tools, $failedCount failed"
+                
+                # Emit result
+                $resultData = @{
+                    type = "setup-devtools-result"
+                    success = $overallSuccess
+                    results = $results
+                    successCount = $successCount
+                    failedCount = $failedCount
+                }
+                
+                Emit-Event -Type "result" -StepId "setup-devtools" -State $(if ($overallSuccess) { "success" } else { "failed" }) -Data $resultData
+            }
+            
+            "setupEnvironment" {
+                Emit-Log -StepId "setup-environment" -Level "info" -Text "Setting up environment variables and PATH"
+                
+                # Load env module
+                Import-Module "$PSScriptRoot\modules\env.psm1" -Force
+                
+                $variables = $command.variables
+                $pathEntries = $command.pathEntries
+                $results = @{
+                    variables = @()
+                    paths = @()
+                }
+                $successCount = 0
+                $failedCount = 0
+                
+                # Set environment variables
+                foreach ($var in $variables) {
+                    Emit-Log -StepId "setup-environment" -Level "info" -Text "Setting environment variable $($var.name)..."
+                    
+                    $result = Set-EnvironmentVariable -Name $var.name -Value $var.value -Scope $var.scope
+                    
+                    if ($result.success) {
+                        $successCount++
+                    } else {
+                        $failedCount++
+                    }
+                    
+                    $results.variables += $result
+                }
+                
+                # Add PATH entries
+                foreach ($pathEntry in $pathEntries) {
+                    Emit-Log -StepId "setup-environment" -Level "info" -Text "Adding PATH entry $($pathEntry.path)..."
+                    
+                    $result = Add-PathEntry -Path $pathEntry.path -Scope $pathEntry.scope
+                    
+                    if ($result.success) {
+                        $successCount++
+                    } else {
+                        $failedCount++
+                    }
+                    
+                    $results.paths += $result
+                }
+                
+                $overallSuccess = $failedCount -eq 0
+                
+                Emit-Log -StepId "setup-environment" -Level "success" -Text "Set $successCount items, $failedCount failed"
+                
+                # Emit result
+                $resultData = @{
+                    type = "setup-environment-result"
+                    success = $overallSuccess
+                    results = $results
+                    successCount = $successCount
+                    failedCount = $failedCount
+                }
+                
+                Emit-Event -Type "result" -StepId "setup-environment" -State $(if ($overallSuccess) { "success" } else { "failed" }) -Data $resultData
+            }
+            
+            "setupPackages" {
+                Emit-Log -StepId "setup-packages" -Level "info" -Text "Installing packages"
+                
+                # Load installers module
+                Import-Module "$PSScriptRoot\modules\installers.psm1" -Force
+                
+                $packages = $command.packages
+                $results = @()
+                $successCount = 0
+                $failedCount = 0
+                
+                foreach ($pkg in $packages) {
+                    Emit-Log -StepId "setup-packages" -Level "info" -Text "Installing $($pkg.name) via $($pkg.manager)..."
+                    
+                    $result = Install-Package -Name $pkg.name -Manager $pkg.manager -Version $pkg.version
+                    
+                    if ($result.success) {
+                        $successCount++
+                    } else {
+                        $failedCount++
+                    }
+                    
+                    $results += $result
+                }
+                
+                $overallSuccess = $failedCount -eq 0
+                
+                Emit-Log -StepId "setup-packages" -Level "success" -Text "Installed $successCount packages, $failedCount failed"
+                
+                # Emit result
+                $resultData = @{
+                    type = "setup-packages-result"
+                    success = $overallSuccess
+                    results = $results
+                    successCount = $successCount
+                    failedCount = $failedCount
+                }
+                
+                Emit-Event -Type "result" -StepId "setup-packages" -State $(if ($overallSuccess) { "success" } else { "failed" }) -Data $resultData
+            }
+            
             "createBundle" {
                 Emit-Log -StepId "create-bundle" -Level "info" -Text "Creating bundle from selected items"
                 

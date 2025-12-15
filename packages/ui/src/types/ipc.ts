@@ -17,6 +17,9 @@ export type IPCCommand =
   | ScanPackagesCommand
   | CreateBundleCommand
   | StartSetupCommand
+  | SetupDevToolsCommand
+  | SetupEnvironmentCommand
+  | SetupPackagesCommand
   | AbortCommand
   | ResumeCommand
   | RetryStepCommand
@@ -83,6 +86,37 @@ export interface StartSetupCommand {
     preferOffline?: boolean
     skipManual?: boolean
   }
+}
+
+export interface SetupDevToolsCommand {
+  cmd: 'setupDevTools'
+  tools: Array<{
+    name: string
+    version: string
+    command: string
+  }>
+}
+
+export interface SetupEnvironmentCommand {
+  cmd: 'setupEnvironment'
+  variables: Array<{
+    name: string
+    value: string
+    scope: 'system' | 'user'
+  }>
+  pathEntries: Array<{
+    path: string
+    scope: 'system' | 'user'
+  }>
+}
+
+export interface SetupPackagesCommand {
+  cmd: 'setupPackages'
+  packages: Array<{
+    name: string
+    version: string
+    manager: 'npm' | 'pip' | 'winget' | 'chocolatey'
+  }>
 }
 
 export interface AbortCommand {
@@ -232,6 +266,59 @@ export interface PackagesScanResult {
     version: string
     manager: 'npm' | 'pip' | 'winget' | 'chocolatey'
   }>
+}
+
+export interface SetupDevToolsResult {
+  type: 'setup-devtools-result'
+  success: boolean
+  results: Array<{
+    success: boolean
+    alreadyInstalled?: boolean
+    method?: string
+    package?: string
+    path?: string
+    error?: string
+    url?: string
+  }>
+  successCount: number
+  failedCount: number
+}
+
+export interface SetupEnvironmentResult {
+  type: 'setup-environment-result'
+  success: boolean
+  results: {
+    variables: Array<{
+      success: boolean
+      alreadySet?: boolean
+      name?: string
+      value?: string
+      scope?: string
+      error?: string
+    }>
+    paths: Array<{
+      success: boolean
+      alreadyExists?: boolean
+      path?: string
+      scope?: string
+      error?: string
+    }>
+  }
+  successCount: number
+  failedCount: number
+}
+
+export interface SetupPackagesResult {
+  type: 'setup-packages-result'
+  success: boolean
+  results: Array<{
+    success: boolean
+    package?: string
+    manager?: string
+    error?: string
+  }>
+  successCount: number
+  failedCount: number
 }
 
 export interface BundleCreatedResult {
