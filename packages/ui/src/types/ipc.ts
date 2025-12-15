@@ -12,6 +12,9 @@ export type IPCCommand =
   | ScanVSCodeCommand
   | ScanDockerCommand
   | ScanDatabaseCommand
+  | ScanDevToolsCommand
+  | ScanEnvironmentCommand
+  | ScanPackagesCommand
   | CreateBundleCommand
   | StartSetupCommand
   | AbortCommand
@@ -43,6 +46,18 @@ export interface ScanDockerCommand {
 
 export interface ScanDatabaseCommand {
   cmd: 'scanDatabase'
+}
+
+export interface ScanDevToolsCommand {
+  cmd: 'scanDevTools'
+}
+
+export interface ScanEnvironmentCommand {
+  cmd: 'scanEnvironment'
+}
+
+export interface ScanPackagesCommand {
+  cmd: 'scanPackages'
 }
 
 export interface CreateBundleCommand {
@@ -179,6 +194,43 @@ export interface DatabaseScanResult {
     database?: string
     username?: string  // MongoDB username if extracted from connection string
     source: 'compass' | 'workbench' | 'pgadmin' | 'other'
+  }>
+}
+
+export interface DevToolsScanResult {
+  type: 'devtools-scan-result'
+  tools: Array<{
+    id: string
+    name: string
+    command: string
+    version: string
+    path: string
+  }>
+}
+
+export interface EnvironmentScanResult {
+  type: 'environment-scan-result'
+  variables: Array<{
+    id: string
+    name: string
+    value: string
+    scope: 'system' | 'user'
+  }>
+  pathEntries: Array<{
+    id: string
+    path: string
+    scope: 'system' | 'user'
+    exists: boolean
+  }>
+}
+
+export interface PackagesScanResult {
+  type: 'packages-scan-result'
+  packages: Array<{
+    id: string
+    name: string
+    version: string
+    manager: 'npm' | 'pip' | 'winget' | 'chocolatey'
   }>
 }
 

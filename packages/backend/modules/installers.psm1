@@ -338,5 +338,128 @@ function Test-Checksum {
     }
 }
 
+function Get-InstalledPackages {
+    <#
+    .SYNOPSIS
+        Scan for installed packages from npm, pip, winget, and chocolatey
+    .DESCRIPTION
+        Scans global packages from various package managers
+    .OUTPUTS
+        Array of hashtables with package name, version, and manager
+    #>
+    
+    try {
+        $packages = @()
+        
+        Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages..."
+        
+        # Scan npm global packages
+        try {
+            $npmPath = Get-Command npm -ErrorAction SilentlyContinue
+            if ($npmPath) {
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning npm global packages..."
+                $npmOutput = npm list -g --depth=0 --json 2>$null | ConvertFrom-Json
+                
+                if ($npmOutput.dependencies) {
+                    foreach ($pkg in $npmOutput.dependencies.PSObject.Properties) {
+                        $packages += @{
+                            name = $pkg.Name
+                            version = $pkg.Value.version
+                            manager = "npm"
+                            type = "package"
+                        }
+                    }
+                    Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $($npmOutput.dependencies.PSObject.Properties.Count) npm packages"
+                }
+            }
+        }
+        catch {
+            Write-Verbose "Error scanning npm packages: $($_.Exception.Message)"
+        }
+        
+        # Scan pip packages
+        try {
+            $pipPath = Get-Command pip -ErrorAction SilentlyContinue
+            if ($pipPath) {
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning pip packages..."
+                $pipOutput = pip list --format=json 2>$null | ConvertFrom-Json
+                
+                foreach ($pkg in $pipOutput) {
+                    $packages += @{
+                        name = $pkg.name
+                        version = $pkg.version
+                        manager = "pip"
+                        type = "package"
+                    }
+                }
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $($pipOutput.Count) pip packages"
+            }
+        }
+        catch {
+            Write-Verbose "Error scanning pip packages: $($_.Exception.Message)"
+        }
+        
+        # Scan winget packages
+        try {
+            $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
+            if ($wingetPath) {
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning winget packages..."
+                # winget list outputs text, need to parse it
+                $wingetOutput = winget list --source winget 2>$null
+                
+                # Parse winget output (skip header lines)
+                $lines = $wingetOutput -split "`n" | Select-Object -Skip 2
+                foreach ($line in $lines) {
+                    if ($line -match '^\s*(.+?)\s+(.+?)\s+(.+?)\s*$') {
+                        $packages += @{
+                            name = $matches[1].Trim()
+                            version = $matches[2].Trim()
+                            manager = "winget"
+                            type = "package"
+                        }
+                    }
+                }
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'winget' }).Count) winget packages"
+            }
+        }
+        catch {
+            Write-Verbose "Error scanning winget packages: $($_.Exception.Message)"
+        }
+        
+        # Scan chocolatey packages
+        try {
+            $chocoPath = Get-Command choco -ErrorAction SilentlyContinue
+            if ($chocoPath) {
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning chocolatey packages..."
+                $chocoOutput = choco list --local-only --limit-output 2>$null
+                
+                # Parse choco output (format: name|version)
+                foreach ($line in $chocoOutput) {
+                    if ($line -match '^(.+?)\|(.+)$') {
+                        $packages += @{
+                            name = $matches[1]
+                            version = $matches[2]
+                            manager = "chocolatey"
+                            type = "package"
+                        }
+                    }
+                }
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'chocolatey' }).Count) chocolatey packages"
+            }
+        }
+        catch {
+            Write-Verbose "Error scanning chocolatey packages: $($_.Exception.Message)"
+        }
+        
+        Emit-Log -StepId "scan-packages" -Level "success" -Text "Found total of $($packages.Count) packages across all managers"
+        
+        return $packages
+    }
+    catch {
+        Emit-Log -StepId "scan-packages" -Level "error" -Text "Error scanning packages: $($_.Exception.Message)"
+        return @()
+    }
+}
+
 # Export all public functions
-Export-ModuleMember -Function Download-File, Run-Installer, Add-ToPath, Test-Checksum
+Export-ModuleMember -Function Download-File, Run-Installer, Add-ToPath, Test-Checksum, Get-InstalledPackages

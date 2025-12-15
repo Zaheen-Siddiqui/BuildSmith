@@ -205,6 +205,100 @@ while ($true) {
                 Emit-Event -Type "result" -StepId "scan-database" -State "success" -Data $result
             }
             
+            "scanDevTools" {
+                Emit-Log -StepId "scan-devtools" -Level "info" -Text "Scanning for DevOps tools"
+                
+                # Load DevTools scanner module
+                Import-Module "$PSScriptRoot\modules\devtools.psm1" -Force
+                
+                # Run DevTools scan
+                $devToolsData = Get-InstalledDevTools
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "devtools-scan-result"
+                    tools = @($devToolsData | ForEach-Object {
+                        @{
+                            id = "$($_.command)-$($_.version)"
+                            name = $_.name
+                            command = $_.command
+                            version = $_.version
+                            path = $_.path
+                        }
+                    })
+                }
+                
+                Emit-Log -StepId "scan-devtools" -Level "success" -Text "Found $($devToolsData.Count) DevOps tools"
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-devtools" -State "success" -Data $result
+            }
+            
+            "scanEnvironment" {
+                Emit-Log -StepId "scan-environment" -Level "info" -Text "Scanning environment variables and PATH"
+                
+                # Load Environment scanner module
+                Import-Module "$PSScriptRoot\modules\env.psm1" -Force
+                
+                # Run environment and PATH scan
+                $envVars = Get-EnvironmentVariables
+                $pathEntries = Get-SystemPath
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "environment-scan-result"
+                    variables = @($envVars | ForEach-Object {
+                        @{
+                            id = "$($_.scope)-$($_.name)"
+                            name = $_.name
+                            value = $_.value
+                            scope = $_.scope
+                        }
+                    })
+                    pathEntries = @($pathEntries | ForEach-Object {
+                        @{
+                            id = "$($_.scope)-$($_.path)"
+                            path = $_.path
+                            scope = $_.scope
+                            exists = $_.exists
+                        }
+                    })
+                }
+                
+                Emit-Log -StepId "scan-environment" -Level "success" -Text "Found $($envVars.Count) environment variables and $($pathEntries.Count) PATH entries"
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-environment" -State "success" -Data $result
+            }
+            
+            "scanPackages" {
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages"
+                
+                # Load Package scanner module
+                Import-Module "$PSScriptRoot\modules\installers.psm1" -Force
+                
+                # Run package scan
+                $packagesData = Get-InstalledPackages
+                
+                # Format result to match frontend expectations
+                $result = @{
+                    type = "packages-scan-result"
+                    packages = @($packagesData | ForEach-Object {
+                        @{
+                            id = "$($_.manager)-$($_.name)"
+                            name = $_.name
+                            version = $_.version
+                            manager = $_.manager
+                        }
+                    })
+                }
+                
+                Emit-Log -StepId "scan-packages" -Level "success" -Text "Found $($packagesData.Count) packages"
+                
+                # Emit result event
+                Emit-Event -Type "result" -StepId "scan-packages" -State "success" -Data $result
+            }
+            
             "createBundle" {
                 Emit-Log -StepId "create-bundle" -Level "info" -Text "Creating bundle from selected items"
                 
