@@ -6,7 +6,7 @@ interface AtlasPasswordModalProps {
   isOpen: boolean
   onClose: () => void
   connection: DatabaseConnection | null
-  onSubmit: (password: string) => void
+  onSubmit: (credentials: { username: string; password: string }) => void
 }
 
 export default function AtlasPasswordModal({
@@ -15,16 +15,18 @@ export default function AtlasPasswordModal({
   connection,
   onSubmit,
 }: AtlasPasswordModalProps) {
+  // Pre-fill username if connection has it, otherwise empty for user to enter
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
 
-  if (!isOpen || !connection) return null
-
-  // Extract username - not available in our connection format
-  const extractUsername = () => {
-    return 'user'
+  // Update username when connection changes
+  if (isOpen && connection && username === '' && connection.username) {
+    setUsername(connection.username)
   }
+
+  if (!isOpen || !connection) return null
 
   // Use the host directly
   const extractHost = () => {
@@ -32,6 +34,10 @@ export default function AtlasPasswordModal({
   }
 
   const handleSubmit = () => {
+    if (!username.trim()) {
+      setError('Username is required')
+      return
+    }
     if (!password.trim()) {
       setError('Password is required')
       return
@@ -39,7 +45,8 @@ export default function AtlasPasswordModal({
     
     // Clear error and submit
     setError('')
-    onSubmit(password)
+    onSubmit({ username: username.trim(), password: password.trim() })
+    setUsername('')
     setPassword('')
     onClose()
   }
@@ -52,7 +59,6 @@ export default function AtlasPasswordModal({
     }
   }
 
-  const username = extractUsername()
   const host = extractHost()
 
   return (
@@ -85,10 +91,6 @@ export default function AtlasPasswordModal({
               <span className="font-semibold text-accent-400">{connection.name}</span>
             </div>
             <div>
-              <span className="text-primary-400">Username:</span>{' '}
-              <span className="font-mono text-sm">{username}</span>
-            </div>
-            <div>
               <span className="text-primary-400">Host:</span>{' '}
               <span className="font-mono text-sm text-primary-300">{host}</span>
             </div>
@@ -101,9 +103,29 @@ export default function AtlasPasswordModal({
           <div className="text-sm text-blue-200">
             <p className="font-semibold mb-1">Security Note</p>
             <p className="text-xs text-blue-300">
-              BuildSmith cannot decrypt MongoDB Compass's stored passwords. Please enter your Atlas password to complete the connection string.
+              MongoDB Compass doesn't store credentials. Please enter your Atlas username and password.
             </p>
           </div>
+        </div>
+
+        {/* Username Input */}
+        <div className="mb-4">
+          <label htmlFor="atlas-username" className="block text-sm font-medium mb-2">
+            MongoDB Atlas Username
+          </label>
+          <input
+            id="atlas-username"
+            type="text"
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value)
+              setError('')
+            }}
+            onKeyDown={handleKeyPress}
+            placeholder="Enter your Atlas username"
+            className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg focus:outline-none focus:border-accent-500 transition-colors text-white placeholder:text-gray-400"
+            autoFocus={!username}
+          />
         </div>
 
         {/* Password Input */}
@@ -123,7 +145,7 @@ export default function AtlasPasswordModal({
               onKeyDown={handleKeyPress}
               placeholder="Enter your Atlas password"
               className="w-full px-4 py-3 pr-12 bg-white/10 border border-white/30 rounded-lg focus:outline-none focus:border-accent-500 transition-colors text-white placeholder:text-gray-400"
-              autoFocus
+              autoFocus={!!username}
             />
             <button
               type="button"
@@ -151,7 +173,7 @@ export default function AtlasPasswordModal({
           <button
             onClick={handleSubmit}
             className="btn-accent flex-1"
-            disabled={!password.trim()}
+            disabled={!username.trim() || !password.trim()}
           >
             Connect
           </button>
