@@ -93,7 +93,7 @@ export default function EnvironmentPage() {
 
       performScan()
     }
-  }, [scanComplete, selectedEnvironmentVars.length, selectedPathEntries.length, setSelectedEnvironmentVars, setSelectedPathEntries])
+  }, []) // Only run once on mount
 
   const handleSelectAllVars = () => {
     setSelectedEnvironmentVars(selectedEnvironmentVars.map(v => ({ ...v, selected: true })))

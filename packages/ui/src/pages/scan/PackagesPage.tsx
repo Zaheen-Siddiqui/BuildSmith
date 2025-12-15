@@ -82,7 +82,7 @@ export default function PackagesPage() {
 
       performScan()
     }
-  }, [scanComplete, selectedPackages.length, setSelectedPackages])
+  }, []) // Only run once on mount
 
   const handleSelectAllForManager = (manager: typeof activeManager) => {
     setSelectedPackages(selectedPackages.map(pkg => 

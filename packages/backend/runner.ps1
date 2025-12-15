@@ -211,8 +211,8 @@ while ($true) {
                 # Load DevTools scanner module
                 Import-Module "$PSScriptRoot\modules\devtools.psm1" -Force
                 
-                # Run DevTools scan
-                $devToolsData = Get-InstalledDevTools
+                # Run DevTools scan (filter out log output - only keep actual tool objects)
+                $devToolsData = Get-InstalledDevTools | Where-Object { $_.type -eq 'devtool' }
                 
                 # Format result to match frontend expectations
                 $result = @{
@@ -228,13 +228,17 @@ while ($true) {
                     })
                 }
                 
-                Emit-Log -StepId "scan-devtools" -Level "success" -Text "Found $($devToolsData.Count) DevOps tools"
+                Emit-Log -StepId "scan-devtools" -Level "success" -Text "After filtering: Found $($devToolsData.Count) DevOps tools"
                 
                 # Debug: Log first tool data
                 if ($devToolsData.Count -gt 0) {
                     $firstTool = $devToolsData[0]
                     Emit-Log -StepId "scan-devtools" -Level "debug" -Text "First tool - id: $($firstTool.id), name: $($firstTool.name), command: $($firstTool.command)"
                 }
+                
+                # Debug: Log all tool IDs
+                $allIds = $devToolsData | ForEach-Object { $_.id }
+                Emit-Log -StepId "scan-devtools" -Level "debug" -Text "All tool IDs: $($allIds -join ', ')"
                 
                 # Emit result event
                 Emit-Event -Type "result" -StepId "scan-devtools" -State "success" -Data $result
@@ -246,9 +250,9 @@ while ($true) {
                 # Load Environment scanner module
                 Import-Module "$PSScriptRoot\modules\env.psm1" -Force
                 
-                # Run environment and PATH scan
-                $envVars = Get-EnvironmentVariables
-                $pathEntries = Get-SystemPath
+                # Run environment and PATH scan (filter out log output - only keep actual data objects)
+                $envVars = Get-EnvironmentVariables | Where-Object { $_.type -eq 'environment' }
+                $pathEntries = Get-SystemPath | Where-Object { $_.type -eq 'path' }
                 
                 # Format result to match frontend expectations
                 $result = @{
@@ -293,8 +297,8 @@ while ($true) {
                 # Load Package scanner module
                 Import-Module "$PSScriptRoot\modules\installers.psm1" -Force
                 
-                # Run package scan
-                $packagesData = Get-InstalledPackages
+                # Run packages scan (filter out log output - only keep actual package objects)
+                $packagesData = Get-InstalledPackages | Where-Object { $_.type -eq 'package' }
                 
                 # Format result to match frontend expectations
                 $result = @{

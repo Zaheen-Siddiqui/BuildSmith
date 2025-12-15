@@ -67,7 +67,7 @@ function Get-InstalledDevTools {
                         Write-Verbose "Could not get version for $($toolDef.Name): $($_.Exception.Message)"
                     }
                     
-                    $tools += @{
+                    $tools += [PSCustomObject]@{
                         id = "devtool-$toolIndex"
                         name = $toolDef.Name
                         command = $toolDef.Command

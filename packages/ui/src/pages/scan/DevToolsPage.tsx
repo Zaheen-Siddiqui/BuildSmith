@@ -81,7 +81,7 @@ export default function DevToolsPage() {
 
       performScan()
     }
-  }, [scanComplete, selectedDevTools.length, setSelectedDevTools])
+  }, []) // Only run once on mount
 
   const handleSelectAll = () => {
     setSelectedDevTools(selectedDevTools.map(tool => ({ ...tool, selected: true })))

@@ -39,7 +39,7 @@ function Get-EnvironmentVariables {
             
             # Skip sensitive variables
             if (-not $isSensitive) {
-                $variables += @{
+                $variables += [PSCustomObject]@{
                     id = "system-$key"
                     name = $key
                     value = $systemVars[$key]
@@ -62,7 +62,7 @@ function Get-EnvironmentVariables {
             
             # Skip sensitive variables and PATH (handled separately)
             if (-not $isSensitive -and $key -ne "Path") {
-                $variables += @{
+                $variables += [PSCustomObject]@{
                     id = "user-$key"
                     name = $key
                     value = $userVars[$key]
@@ -102,7 +102,7 @@ function Get-SystemPath {
         $systemPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)
         if ($systemPath) {
             $systemPath -split ';' | Where-Object { $_ -and (Test-Path $_ -ErrorAction SilentlyContinue) } | ForEach-Object {
-                $pathEntries += @{
+                $pathEntries += [PSCustomObject]@{
                     id = "path-$pathIndex"
                     path = $_
                     scope = "system"
@@ -120,7 +120,7 @@ function Get-SystemPath {
                 # Only add if not already in system PATH
                 $existsInSystem = $pathEntries | Where-Object { $_.path -eq $_ }
                 if (-not $existsInSystem) {
-                    $pathEntries += @{
+                    $pathEntries += [PSCustomObject]@{
                         id = "path-$pathIndex"
                         path = $_
                         scope = "user"

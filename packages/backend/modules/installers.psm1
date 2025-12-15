@@ -363,7 +363,7 @@ function Get-InstalledPackages {
                 
                 if ($npmOutput.dependencies) {
                     foreach ($pkg in $npmOutput.dependencies.PSObject.Properties) {
-                        $packages += @{
+                        $packages += [PSCustomObject]@{
                             id = "package-$packageIndex"
                             name = $pkg.Name
                             version = $pkg.Value.version
@@ -388,7 +388,7 @@ function Get-InstalledPackages {
                 $pipOutput = pip list --format=json 2>$null | ConvertFrom-Json
                 
                 foreach ($pkg in $pipOutput) {
-                    $packages += @{
+                    $packages += [PSCustomObject]@{
                         id = "package-$packageIndex"
                         name = $pkg.name
                         version = $pkg.version
@@ -441,7 +441,7 @@ function Get-InstalledPackages {
                         }
                         
                         if ($isDeveloperTool) {
-                            $packages += @{
+                            $packages += [PSCustomObject]@{
                                 id = "package-$packageIndex"
                                 name = $packageName
                                 version = $matches[2].Trim()
@@ -469,7 +469,7 @@ function Get-InstalledPackages {
                 # Parse choco output (format: name|version)
                 foreach ($line in $chocoOutput) {
                     if ($line -match '^(.+?)\|(.+)$') {
-                        $packages += @{
+                        $packages += [PSCustomObject]@{
                             id = "package-$packageIndex"
                             name = $matches[1]
                             version = $matches[2]
