@@ -1,37 +1,34 @@
 import { useState } from 'react'
 import { X, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { DatabaseConnection } from '../store/bundleStore'
 
 interface AtlasPasswordModalProps {
   isOpen: boolean
   onClose: () => void
-  connectionName: string
-  connectionString: string // mongodb+srv://username@host/db
+  connection: DatabaseConnection | null
   onSubmit: (password: string) => void
 }
 
 export default function AtlasPasswordModal({
   isOpen,
   onClose,
-  connectionName,
-  connectionString,
+  connection,
   onSubmit,
 }: AtlasPasswordModalProps) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
 
-  if (!isOpen) return null
+  if (!isOpen || !connection) return null
 
-  // Extract username from connection string
+  // Extract username - not available in our connection format
   const extractUsername = () => {
-    const match = connectionString.match(/mongodb\+srv:\/\/([^@:]+)/)
-    return match ? match[1] : 'username'
+    return 'user'
   }
 
-  // Extract host from connection string
+  // Use the host directly
   const extractHost = () => {
-    const match = connectionString.match(/@([^/]+)/)
-    return match ? match[1] : 'cluster.mongodb.net'
+    return connection.host || 'cluster.mongodb.net'
   }
 
   const handleSubmit = () => {
@@ -76,7 +73,7 @@ export default function AtlasPasswordModal({
           </div>
           <div>
             <h2 className="text-2xl font-bold">Atlas Connection Password</h2>
-            <p className="text-sm text-primary-300">Required to connect to MongoDB Atlas</p>
+            <p className="text-sm text-primary-300">{connection.name}</p>
           </div>
         </div>
 
@@ -85,7 +82,7 @@ export default function AtlasPasswordModal({
           <div className="text-sm space-y-2">
             <div>
               <span className="text-primary-400">Connection:</span>{' '}
-              <span className="font-semibold text-accent-400">{connectionName}</span>
+              <span className="font-semibold text-accent-400">{connection.name}</span>
             </div>
             <div>
               <span className="text-primary-400">Username:</span>{' '}

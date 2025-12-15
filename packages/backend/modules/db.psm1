@@ -67,6 +67,16 @@ function Get-DatabaseConnections {
                                     $database = $matches[1]
                                 }
                                 
+                                # If no database found, try to get defaultAuthenticationDatabase
+                                if ([string]::IsNullOrEmpty($database) -and $connData.connectionInfo.connectionOptions.defaultAuthenticationDatabase) {
+                                    $database = $connData.connectionInfo.connectionOptions.defaultAuthenticationDatabase
+                                }
+                                
+                                # If still empty, use admin as default for MongoDB
+                                if ([string]::IsNullOrEmpty($database)) {
+                                    $database = "admin"
+                                }
+                                
                                 $connections += @{
                                     type = "mongodb"
                                     source = "compass"
@@ -87,13 +97,15 @@ function Get-DatabaseConnections {
                         $compassConnections = $compassData | ConvertFrom-Json
                         
                         foreach ($conn in $compassConnections.connections) {
+                            $dbName = if ($conn.database) { $conn.database } else { "admin" }
+                            
                             $connections += @{
                                 type = "mongodb"
                                 source = "compass"
                                 name = if ($conn.name) { $conn.name } else { "$($conn.hostname):$($conn.port)" }
                                 host = if ($conn.hostname) { $conn.hostname } else { "localhost" }
                                 port = if ($conn.port) { $conn.port } else { 27017 }
-                                database = if ($conn.database) { $conn.database } else { "" }
+                                database = $dbName
                             }
                         }
                         $compassFound = $true
@@ -121,6 +133,10 @@ function Get-DatabaseConnections {
                     $connName = $conn.SelectSingleNode("//value[@key='name']").'#text'
                     $connHost = $conn.SelectSingleNode("//value[@key='hostName']").'#text'
                     $connPort = $conn.SelectSingleNode("//value[@key='port']").'#text'
+                    $connSchema = $conn.SelectSingleNode("//value[@key='schema']").'#text'
+                    
+                    # Use schema if available, otherwise default to information_schema
+                    $database = if ($connSchema) { $connSchema } else { "information_schema" }
                     
                     $connections += @{
                         type = "mysql"
@@ -128,6 +144,7 @@ function Get-DatabaseConnections {
                         name = $connName
                         host = $connHost
                         port = $connPort
+                        database = $database
                     }
                 }
             } catch {
