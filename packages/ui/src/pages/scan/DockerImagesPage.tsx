@@ -24,6 +24,14 @@ export default function DockerImagesPage() {
     setCurrentBundle,
   } = useBundleStore()
 
+  // Initialize local images from store on mount
+  useEffect(() => {
+    if (selectedDockerImages.length > 0 && images.length === 0) {
+      setImages(selectedDockerImages)
+      setScanComplete(true)
+    }
+  }, [selectedDockerImages, images.length])
+
   // Trigger scan on mount
   useEffect(() => {
     if (!scanComplete && selectedDockerImages.length === 0) {
@@ -35,8 +43,8 @@ export default function DockerImagesPage() {
           if (event.type === 'result' && event.stepId === 'scan-docker' && event.state === 'success') {
             const data = event.data as DockerScanResult
             
-            // Convert scan results to store format
-            const images = data.images.map(img => ({
+            // Convert scan results to both local and store format
+            const scannedImages = data.images.map(img => ({
               id: img.id,
               name: img.repository,
               tag: img.tag,
@@ -44,7 +52,9 @@ export default function DockerImagesPage() {
               selected: false
             }))
             
-            setSelectedDockerImages(images)
+            // Update both local state (for UI) and store (for persistence)
+            setImages(scannedImages)
+            setSelectedDockerImages(scannedImages)
             setIsScanning(false)
             setScanComplete(true)
           }
