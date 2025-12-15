@@ -70,25 +70,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Build Electron app
+      - name: Build TypeScript and Vite (skip electron-builder in CI)
         working-directory: packages/ui
-        run: npm run build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:ci
       
-      - name: Upload build artifacts
+      - name: Upload dist folder
         uses: actions/upload-artifact@v4
         with:
-          name: buildsmith-windows
-          path: packages/ui/dist/*.exe
-          retention-days: 30
-      
-      - name: Upload build artifacts (portable)
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildsmith-windows-portable
-          path: packages/ui/dist/*.zip
-          retention-days: 30
+          name: buildsmith-dist
+          path: packages/ui/dist/
+          retention-days: 7
 
   release:
     name: Create Release
