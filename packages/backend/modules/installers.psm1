@@ -407,19 +407,45 @@ function Get-InstalledPackages {
                 # winget list outputs text, need to parse it
                 $wingetOutput = winget list --source winget 2>$null
                 
+                # Developer tool keywords for filtering
+                $devKeywords = @(
+                    'git', 'python', 'node', 'npm', 'java', 'jdk', 'maven', 'gradle',
+                    'docker', 'kubernetes', 'kubectl', 'terraform', 'aws', 'azure', 'gcloud',
+                    'vscode', 'visual studio', 'jetbrains', 'android studio',
+                    'postman', 'insomnia', 'mongodb', 'postgresql', 'mysql', 'redis',
+                    'github', 'gitlab', 'bitbucket', 'compiler', 'sdk', 'dotnet', '.net',
+                    'golang', 'rust', 'ruby', 'php', 'powershell', 'bash', 'terminal',
+                    'vim', 'emacs', 'sublime', 'atom', 'notepad++',
+                    'yarn', 'pnpm', 'composer', 'pip', 'cargo', 'go '
+                )
+                
                 # Parse winget output (skip header lines)
                 $lines = $wingetOutput -split "`n" | Select-Object -Skip 2
                 foreach ($line in $lines) {
                     if ($line -match '^\s*(.+?)\s+(.+?)\s+(.+?)\s*$') {
-                        $packages += @{
-                            name = $matches[1].Trim()
-                            version = $matches[2].Trim()
-                            manager = "winget"
-                            type = "package"
+                        $packageName = $matches[1].Trim()
+                        $packageLower = $packageName.ToLower()
+                        
+                        # Only include if it matches developer tool keywords
+                        $isDeveloperTool = $false
+                        foreach ($keyword in $devKeywords) {
+                            if ($packageLower -like "*$keyword*") {
+                                $isDeveloperTool = $true
+                                break
+                            }
+                        }
+                        
+                        if ($isDeveloperTool) {
+                            $packages += @{
+                                name = $packageName
+                                version = $matches[2].Trim()
+                                manager = "winget"
+                                type = "package"
+                            }
                         }
                     }
                 }
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'winget' }).Count) winget packages"
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'winget' }).Count) developer-related winget packages"
             }
         }
         catch {

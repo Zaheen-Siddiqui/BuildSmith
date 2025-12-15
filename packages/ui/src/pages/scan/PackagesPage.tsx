@@ -44,6 +44,7 @@ export default function PackagesPage() {
     if (!scanComplete && selectedPackages.length === 0) {
       const performScan = async () => {
         setIsScanning(true)
+        setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
         ipc.onEvent((event) => {
@@ -350,9 +351,9 @@ export default function PackagesPage() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {filteredPackages.map((pkg) => (
+                {filteredPackages.map((pkg, index) => (
                   <div
-                    key={pkg.id}
+                    key={pkg.id || `package-${pkg.manager}-${index}`}
                     onClick={() => togglePackage(pkg.id)}
                     className={`
                       bg-white/5 backdrop-blur-sm rounded-xl p-6 cursor-pointer

@@ -46,6 +46,7 @@ export default function EnvironmentPage() {
     if (!scanComplete && selectedEnvironmentVars.length === 0 && selectedPathEntries.length === 0) {
       const performScan = async () => {
         setIsScanning(true)
+        setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
         ipc.onEvent((event) => {
@@ -342,9 +343,9 @@ export default function EnvironmentPage() {
                     <p className="text-xl text-gray-400">No environment variables found</p>
                   </div>
                 ) : (
-                  filteredVars.map((variable) => (
+                  filteredVars.map((variable, index) => (
                     <div
-                      key={variable.id}
+                      key={variable.id || `envvar-${index}`}
                       onClick={() => toggleEnvironmentVar(variable.id)}
                       className={`
                         bg-white/5 backdrop-blur-sm rounded-xl p-6 cursor-pointer
@@ -391,9 +392,9 @@ export default function EnvironmentPage() {
                     <p className="text-xl text-gray-400">No PATH entries found</p>
                   </div>
                 ) : (
-                  filteredPaths.map((entry) => (
+                  filteredPaths.map((entry, index) => (
                     <div
-                      key={entry.id}
+                      key={entry.id || `pathentry-${index}`}
                       onClick={() => togglePathEntry(entry.id)}
                       className={`
                         bg-white/5 backdrop-blur-sm rounded-xl p-6 cursor-pointer
