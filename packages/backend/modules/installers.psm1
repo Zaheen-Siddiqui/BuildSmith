@@ -363,6 +363,7 @@ function Get-InstalledPackages {
                 if ($npmOutput.dependencies) {
                     foreach ($pkg in $npmOutput.dependencies.PSObject.Properties) {
                         $packages += @{
+                            id = "npm-" + $pkg.Name
                             name = $pkg.Name
                             version = $pkg.Value.version
                             manager = "npm"
@@ -386,6 +387,7 @@ function Get-InstalledPackages {
                 
                 foreach ($pkg in $pipOutput) {
                     $packages += @{
+                        id = "pip-" + $pkg.name
                         name = $pkg.name
                         version = $pkg.version
                         manager = "pip"
@@ -437,6 +439,7 @@ function Get-InstalledPackages {
                         
                         if ($isDeveloperTool) {
                             $packages += @{
+                                id = "winget-" + $packageName
                                 name = $packageName
                                 version = $matches[2].Trim()
                                 manager = "winget"
@@ -463,6 +466,7 @@ function Get-InstalledPackages {
                 foreach ($line in $chocoOutput) {
                     if ($line -match '^(.+?)\|(.+)$') {
                         $packages += @{
+                            id = "chocolatey-" + $matches[1]
                             name = $matches[1]
                             version = $matches[2]
                             manager = "chocolatey"

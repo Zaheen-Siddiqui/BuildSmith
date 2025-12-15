@@ -67,6 +67,7 @@ function Get-InstalledDevTools {
                     }
                     
                     $tools += @{
+                        id = $toolDef.Command
                         name = $toolDef.Name
                         command = $toolDef.Command
                         version = $version

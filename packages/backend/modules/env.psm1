@@ -40,6 +40,7 @@ function Get-EnvironmentVariables {
             # Skip sensitive variables
             if (-not $isSensitive) {
                 $variables += @{
+                    id = "system-$key"
                     name = $key
                     value = $systemVars[$key]
                     scope = "system"
@@ -62,6 +63,7 @@ function Get-EnvironmentVariables {
             # Skip sensitive variables and PATH (handled separately)
             if (-not $isSensitive -and $key -ne "Path") {
                 $variables += @{
+                    id = "user-$key"
                     name = $key
                     value = $userVars[$key]
                     scope = "user"
@@ -100,6 +102,7 @@ function Get-SystemPath {
         if ($systemPath) {
             $systemPath -split ';' | Where-Object { $_ -and (Test-Path $_ -ErrorAction SilentlyContinue) } | ForEach-Object {
                 $pathEntries += @{
+                    id = "system-path-" + ($_ -replace '[^a-zA-Z0-9]', '-')
                     path = $_
                     scope = "system"
                     type = "path"
@@ -116,6 +119,7 @@ function Get-SystemPath {
                 $existsInSystem = $pathEntries | Where-Object { $_.path -eq $_ }
                 if (-not $existsInSystem) {
                     $pathEntries += @{
+                        id = "user-path-" + ($_ -replace '[^a-zA-Z0-9]', '-')
                         path = $_
                         scope = "user"
                         type = "path"

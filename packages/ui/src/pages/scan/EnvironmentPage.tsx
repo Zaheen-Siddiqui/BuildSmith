@@ -218,12 +218,12 @@ export default function EnvironmentPage() {
   }
 
   const filteredVars = selectedEnvironmentVars.filter(v =>
-    v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.value.toLowerCase().includes(searchQuery.toLowerCase())
+    v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    v.value?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const filteredPaths = selectedPathEntries.filter(p =>
-    p.path.toLowerCase().includes(searchQuery.toLowerCase())
+    p.path?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const selectedVarsCount = selectedEnvironmentVars.filter(v => v.selected).length
