@@ -107,8 +107,14 @@ export default function DockerImagesPage() {
     // Navigate to next page based on scan settings
     if (scanSettings.databases) {
       navigate('/database-connections')
+    } else if (scanSettings.devtools) {
+      navigate('/devtools')
+    } else if (scanSettings.environment) {
+      navigate('/environment')
+    } else if (scanSettings.packages) {
+      navigate('/packages')
     } else {
-      // Database page is last, so if not selected, we need to generate manifest here
+      // No more config pages, generate manifest and go to preview
       generateManifest()
       navigate('/bundle-preview')
     }

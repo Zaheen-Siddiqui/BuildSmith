@@ -52,6 +52,39 @@ export interface DatabaseConnection {
   isAtlas?: boolean  // True if this is a MongoDB Atlas connection
 }
 
+export interface DevTool {
+  id: string
+  name: string
+  command: string
+  version: string
+  path: string
+  selected: boolean
+}
+
+export interface EnvironmentVariable {
+  id: string
+  name: string
+  value: string
+  scope: 'system' | 'user'
+  selected: boolean
+}
+
+export interface PathEntry {
+  id: string
+  path: string
+  scope: 'system' | 'user'
+  exists: boolean
+  selected: boolean
+}
+
+export interface Package {
+  id: string
+  name: string
+  version: string
+  manager: 'npm' | 'pip' | 'winget' | 'chocolatey'
+  selected: boolean
+}
+
 export interface BundleMetadata {
   id: string
   name: string
@@ -79,11 +112,30 @@ export interface BundleState {
   setSelectedDatabases: (databases: DatabaseConnection[]) => void
   toggleDatabase: (id: string) => void
   
+  selectedDevTools: DevTool[]
+  setSelectedDevTools: (tools: DevTool[]) => void
+  toggleDevTool: (id: string) => void
+  
+  selectedEnvironmentVars: EnvironmentVariable[]
+  setSelectedEnvironmentVars: (vars: EnvironmentVariable[]) => void
+  toggleEnvironmentVar: (id: string) => void
+  
+  selectedPathEntries: PathEntry[]
+  setSelectedPathEntries: (entries: PathEntry[]) => void
+  togglePathEntry: (id: string) => void
+  
+  selectedPackages: Package[]
+  setSelectedPackages: (packages: Package[]) => void
+  togglePackage: (id: string) => void
+  
   // Scan progress tracking
   scanProgress: {
     docker: boolean  // true if Docker images page completed
     vscode: boolean  // true if VS Code profiles page completed
     database: boolean  // true if Database connections page completed
+    devtools: boolean  // true if DevOps tools page completed
+    environment: boolean  // true if Environment variables page completed
+    packages: boolean  // true if Packages page completed
   }
   setScanProgress: (progress: Partial<BundleState['scanProgress']>) => void
   
@@ -183,11 +235,50 @@ export const useBundleStore = create<BundleState>()(
           ),
         })),
 
+      selectedDevTools: [],
+      setSelectedDevTools: (tools) => set({ selectedDevTools: tools }),
+      toggleDevTool: (id) =>
+        set((state) => ({
+          selectedDevTools: state.selectedDevTools.map((tool) =>
+            tool.id === id ? { ...tool, selected: !tool.selected } : tool
+          ),
+        })),
+
+      selectedEnvironmentVars: [],
+      setSelectedEnvironmentVars: (vars) => set({ selectedEnvironmentVars: vars }),
+      toggleEnvironmentVar: (id) =>
+        set((state) => ({
+          selectedEnvironmentVars: state.selectedEnvironmentVars.map((v) =>
+            v.id === id ? { ...v, selected: !v.selected } : v
+          ),
+        })),
+
+      selectedPathEntries: [],
+      setSelectedPathEntries: (entries) => set({ selectedPathEntries: entries }),
+      togglePathEntry: (id) =>
+        set((state) => ({
+          selectedPathEntries: state.selectedPathEntries.map((entry) =>
+            entry.id === id ? { ...entry, selected: !entry.selected } : entry
+          ),
+        })),
+
+      selectedPackages: [],
+      setSelectedPackages: (packages) => set({ selectedPackages: packages }),
+      togglePackage: (id) =>
+        set((state) => ({
+          selectedPackages: state.selectedPackages.map((pkg) =>
+            pkg.id === id ? { ...pkg, selected: !pkg.selected } : pkg
+          ),
+        })),
+
       // Scan progress
       scanProgress: {
         docker: false,
         vscode: false,
         database: false,
+        devtools: false,
+        environment: false,
+        packages: false,
       },
       setScanProgress: (progress) =>
         set((state) => ({
@@ -268,10 +359,17 @@ export const useBundleStore = create<BundleState>()(
           selectedDockerImages: [],
           selectedVSCodeProfiles: [],
           selectedDatabases: [],
+          selectedDevTools: [],
+          selectedEnvironmentVars: [],
+          selectedPathEntries: [],
+          selectedPackages: [],
           scanProgress: {
             docker: false,
             vscode: false,
             database: false,
+            devtools: false,
+            environment: false,
+            packages: false,
           },
         }),
       resetBundle: () =>

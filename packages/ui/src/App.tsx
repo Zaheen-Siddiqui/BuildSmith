@@ -8,6 +8,9 @@ import InstallerFlowPage from './pages/InstallerFlowPage'
 import DockerImagesPage from './pages/scan/DockerImagesPage'
 import VSCodeProfilesPage from './pages/scan/VSCodeProfilesPage'
 import DatabaseConnectionsPage from './pages/scan/DatabaseConnectionsPage'
+import DevToolsPage from './pages/scan/DevToolsPage'
+import EnvironmentPage from './pages/scan/EnvironmentPage'
+import PackagesPage from './pages/scan/PackagesPage'
 import ImportPage from './pages/setup/ImportPage'
 import SetupConfigPage from './pages/setup/SetupConfigPage'
 import SetupVSCodePage from './pages/setup/SetupVSCodePage'
@@ -42,6 +45,9 @@ function App() {
           <Route path="/docker-images" element={<DockerImagesPage />} />
           <Route path="/vscode-profiles" element={<VSCodeProfilesPage />} />
           <Route path="/database-connections" element={<DatabaseConnectionsPage />} />
+          <Route path="/devtools" element={<DevToolsPage />} />
+          <Route path="/environment" element={<EnvironmentPage />} />
+          <Route path="/packages" element={<PackagesPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/recent-bundles" element={<RecentBundlesPage />} />
         </Routes>

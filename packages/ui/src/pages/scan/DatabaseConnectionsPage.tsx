@@ -72,70 +72,59 @@ export default function DatabaseConnectionsPage() {
     // Mark database config as complete
     setScanProgress({ database: true })
     
-    // Generate complete manifest from all selected items
+    // Navigate to next page based on scan settings
+    if (scanSettings.devtools) {
+      navigate('/devtools')
+    } else if (scanSettings.environment) {
+      navigate('/environment')
+    } else if (scanSettings.packages) {
+      navigate('/packages')
+    } else {
+      // Generate complete manifest from all selected items
+      generateManifest()
+      navigate('/bundle-preview')
+    }
+  }
+
+  const generateManifest = () => {
     const manifestItems: ManifestItem[] = []
     
     // Add Docker images
-    selectedDockerImages
-      .filter(img => img.selected)
-      .forEach(img => {
-        manifestItems.push({
-          name: `${img.name}:${img.tag}`,
-          version: img.tag,
-          type: 'image',
-          source: 'docker',
-          included: true,
-        })
+    selectedDockerImages.filter(img => img.selected).forEach(img => {
+      manifestItems.push({
+        name: `${img.name}:${img.tag}`,
+        version: img.tag,
+        type: 'image',
+        source: 'docker',
+        included: true,
       })
+    })
     
     // Add VS Code profiles/extensions
-    selectedVSCodeProfiles
-      .filter(profile => profile.selected)
-      .forEach(profile => {
-        profile.extensions.forEach(ext => {
-          manifestItems.push({
-            name: ext,
-            version: '1.0.0',
-            type: 'extension',
-            source: 'vscode',
-            included: true,
-          })
-        })
-      })
-    
-    // Add database connections
-    selectedDatabases
-      .filter(db => db.selected)
-      .forEach(db => {
+    selectedVSCodeProfiles.filter(profile => profile.selected).forEach(profile => {
+      profile.extensions.forEach(ext => {
         manifestItems.push({
-          name: db.name,
+          name: ext,
           version: '1.0.0',
-          type: 'secret',
-          source: db.type,
+          type: 'extension',
+          source: 'vscode',
           included: true,
         })
       })
+    })
     
-    // Add devtools if selected
-    if (scanSettings.devtools) {
-      manifestItems.push(
-        { name: 'Git', version: '2.42.0', type: 'installer', source: 'https://git-scm.com', checksum: 'abc123', included: true },
-        { name: 'Node.js', version: '18.17.0', type: 'installer', source: 'https://nodejs.org', checksum: 'def456', included: true },
-      )
-    }
+    // Add database connections
+    selectedDatabases.filter(db => db.selected).forEach(db => {
+      manifestItems.push({
+        name: db.name,
+        version: '1.0.0',
+        type: 'secret',
+        source: db.type,
+        included: true,
+      })
+    })
     
-    // Add packages if selected
-    if (scanSettings.packages) {
-      manifestItems.push(
-        { name: 'npm:react', version: '18.2.0', type: 'package', source: 'npm', included: true },
-        { name: 'npm:typescript', version: '5.2.2', type: 'package', source: 'npm', included: true },
-      )
-    }
-    
-    // Set manifest items in store
     setManifestItems(manifestItems)
-    
-    // Create bundle metadata
     setCurrentBundle({
       id: Date.now().toString(),
       name: `Bundle_${new Date().toISOString().split('T')[0]}`,
@@ -143,9 +132,6 @@ export default function DatabaseConnectionsPage() {
       description: 'Auto-generated development environment bundle',
       encrypted: scanSettings.includeSecrets,
     })
-    
-    // Database is always last, so go to bundle preview
-    navigate('/bundle-preview')
   }
 
   // Calculate progress
