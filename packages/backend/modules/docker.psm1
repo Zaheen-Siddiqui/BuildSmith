@@ -22,8 +22,21 @@ function Get-DockerImages {
             return @()
         }
         
+        # Check if Docker daemon is running
+        $dockerTest = docker info 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $errorMsg = if ($dockerTest -match "error during connect") {
+                "Docker Desktop is not running. Please start Docker Desktop and try again."
+            } else {
+                "Cannot connect to Docker daemon: $dockerTest"
+            }
+            Emit-Log -StepId $stepId -Level "error" -Text $errorMsg
+            Emit-Result -StepId $stepId -State "failed" -Error $errorMsg
+            return @()
+        }
+        
         # Get list of images
-        $images = docker images --format "{{.Repository}}:{{.Tag}}|{{.ID}}|{{.Size}}" | ForEach-Object {
+        $images = docker images --format "{{.Repository}}:{{.Tag}}|{{.ID}}|{{.Size}}" 2>&1 | Where-Object { $_ -is [string] -and $_ -match '\|' } | ForEach-Object {
             $parts = $_ -split '\|'
             @{
                 image = $parts[0]

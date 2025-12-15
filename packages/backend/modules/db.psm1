@@ -15,24 +15,113 @@ function Get-DatabaseConnections {
     try {
         $connections = @()
         
-        # Check for MongoDB Compass connections
-        $compassConfigPath = "$env:APPDATA\MongoDB Compass Community\Connections"
-        if (Test-Path $compassConfigPath) {
-            try {
-                $compassConnections = Get-Content $compassConfigPath -Raw | ConvertFrom-Json
-                foreach ($conn in $compassConnections.connections) {
-                    $connections += @{
-                        type = "mongodb"
-                        source = "compass"
-                        name = $conn.name
-                        host = $conn.hostname
-                        port = $conn.port
-                        database = $conn.database
+        # Check for MongoDB Compass connections (try both paths)
+        # MongoDB Compass now stores connections as individual JSON files in a directory
+        $compassPaths = @(
+            "$env:APPDATA\MongoDB Compass\Connections",
+            "$env:APPDATA\MongoDB Compass Community\Connections"
+        )
+        
+        $compassFound = $false
+        foreach ($compassConfigPath in $compassPaths) {
+            if (Test-Path $compassConfigPath) {
+                try {
+                    # Check if it's a directory (new MongoDB Compass format)
+                    $item = Get-Item $compassConfigPath -ErrorAction Stop
+                    
+                    if ($item.PSIsContainer) {
+                        # New format: directory with individual JSON files per connection
+                        $connectionFiles = Get-ChildItem -Path $compassConfigPath -Filter "*.json" -ErrorAction SilentlyContinue
+                        
+                        foreach ($file in $connectionFiles) {
+                            try {
+                                $connData = Get-Content $file.FullName -Raw | ConvertFrom-Json
+                                
+                                # Parse connection string to extract host and port
+                                $connString = $connData.connectionInfo.connectionOptions.connectionString
+                                $connName = $connData.connectionInfo.favorite.name
+                                
+                                # Extract host and port from connection string
+                                # Formats: mongodb://localhost:27017, mongodb+srv://host/db, etc.
+                                $host = "localhost"
+                                $port = 27017
+                                $database = ""
+                                
+                                if ($connString -match 'mongodb(\+srv)?://([^/]+)') {
+                                    $hostPart = $matches[2]
+                                    # Remove username/password if present
+                                    if ($hostPart -match '@(.+)') {
+                                        $hostPart = $matches[1]
+                                    }
+                                    # Extract host and port
+                                    if ($hostPart -match '([^:]+):(\d+)') {
+                                        $host = $matches[1]
+                                        $port = [int]$matches[2]
+                                    } else {
+                                        $host = $hostPart -replace '\?.*$', ''  # Remove query params
+                                    }
+                                }
+                                
+                                # Extract database from connection string
+                                if ($connString -match '/([^/?]+)(\?|$)') {
+                                    $database = $matches[1]
+                                }
+                                
+                                # If no database found, try to get defaultAuthenticationDatabase
+                                if ([string]::IsNullOrEmpty($database) -and $connData.connectionInfo.connectionOptions.defaultAuthenticationDatabase) {
+                                    $database = $connData.connectionInfo.connectionOptions.defaultAuthenticationDatabase
+                                }
+                                
+                                # If still empty, use admin as default for MongoDB
+                                if ([string]::IsNullOrEmpty($database)) {
+                                    $database = "admin"
+                                }
+                                
+                                $connections += @{
+                                    type = "mongodb"
+                                    source = "compass"
+                                    name = if ($connName) { $connName } else { "${host}:${port}" }
+                                    host = $host
+                                    port = $port
+                                    database = $database
+                                }
+                                
+                                $compassFound = $true
+                            } catch {
+                                Write-Verbose "Failed to parse connection file $($file.Name): $($_.Exception.Message)"
+                            }
+                        }
+                    } else {
+                        # Old format: single JSON file with connections array
+                        $compassData = Get-Content $compassConfigPath -Raw -ErrorAction Stop
+                        $compassConnections = $compassData | ConvertFrom-Json
+                        
+                        foreach ($conn in $compassConnections.connections) {
+                            $dbName = if ($conn.database) { $conn.database } else { "admin" }
+                            
+                            $connections += @{
+                                type = "mongodb"
+                                source = "compass"
+                                name = if ($conn.name) { $conn.name } else { "$($conn.hostname):$($conn.port)" }
+                                host = if ($conn.hostname) { $conn.hostname } else { "localhost" }
+                                port = if ($conn.port) { $conn.port } else { 27017 }
+                                database = $dbName
+                            }
+                        }
+                        $compassFound = $true
                     }
+                    
+                    if ($compassFound) {
+                        break
+                    }
+                } catch {
+                    Write-Warning "Failed to read MongoDB Compass connections: $($_.Exception.Message)"
                 }
-            } catch {
-                Write-Warning "Failed to parse MongoDB Compass connections: $($_.Exception.Message)"
             }
+        }
+        
+        if (-not $compassFound) {
+            Write-Verbose "MongoDB Compass connections not found at any expected location"
         }
         
         # Check for MySQL Workbench connections
@@ -44,6 +133,10 @@ function Get-DatabaseConnections {
                     $connName = $conn.SelectSingleNode("//value[@key='name']").'#text'
                     $connHost = $conn.SelectSingleNode("//value[@key='hostName']").'#text'
                     $connPort = $conn.SelectSingleNode("//value[@key='port']").'#text'
+                    $connSchema = $conn.SelectSingleNode("//value[@key='schema']").'#text'
+                    
+                    # Use schema if available, otherwise default to information_schema
+                    $database = if ($connSchema) { $connSchema } else { "information_schema" }
                     
                     $connections += @{
                         type = "mysql"
@@ -51,6 +144,7 @@ function Get-DatabaseConnections {
                         name = $connName
                         host = $connHost
                         port = $connPort
+                        database = $database
                     }
                 }
             } catch {
@@ -85,16 +179,46 @@ function Export-MongoConnections {
         Emit-Status -StepId $StepId -State "running" -Message "Exporting MongoDB connections..."
         Emit-Log -StepId $StepId -Level "info" -Text "Scanning MongoDB Compass connections..."
         
-        $compassConfigPath = "$env:APPDATA\MongoDB Compass Community\Connections"
+        # Try both possible MongoDB Compass paths
+        $compassPaths = @(
+            "$env:APPDATA\MongoDB Compass\Connections",
+            "$env:APPDATA\MongoDB Compass Community\Connections"
+        )
         
-        if (-not (Test-Path $compassConfigPath)) {
+        $compassConfigPath = $null
+        foreach ($path in $compassPaths) {
+            if (Test-Path $path) {
+                $compassConfigPath = $path
+                break
+            }
+        }
+        
+        if (-not $compassConfigPath) {
             Emit-Log -StepId $StepId -Level "warn" -Text "MongoDB Compass connections not found"
             Emit-Status -StepId $StepId -State "complete" -Message "No connections found"
             return $null
         }
         
-        # Read and parse Compass connections
-        $compassData = Get-Content $compassConfigPath -Raw | ConvertFrom-Json
+        # Read and parse Compass connections with retry for locked files
+        $retryCount = 0
+        $maxRetries = 3
+        $compassData = $null
+        
+        while ($retryCount -lt $maxRetries -and $null -eq $compassData) {
+            try {
+                $rawData = Get-Content $compassConfigPath -Raw -ErrorAction Stop
+                $compassData = $rawData | ConvertFrom-Json
+                break
+            } catch {
+                $retryCount++
+                if ($retryCount -lt $maxRetries) {
+                    Emit-Log -StepId $StepId -Level "debug" -Text "File locked, retrying... ($retryCount/$maxRetries)"
+                    Start-Sleep -Milliseconds 200
+                } else {
+                    throw "Cannot read MongoDB Compass connections (file may be locked). Please close MongoDB Compass and try again."
+                }
+            }
+        }
         
         # Export to output path
         $compassData | ConvertTo-Json -Depth 10 | Out-File $OutputPath -Encoding UTF8
@@ -147,8 +271,25 @@ function Import-CompassConnections {
         # Read connections data
         $connectionsData = Get-Content $ConnectionsFile -Raw | ConvertFrom-Json
         
-        # Target path for Compass connections
-        $compassConfigPath = "$env:APPDATA\MongoDB Compass Community\Connections"
+        # Target path for Compass connections - try to find existing installation
+        $compassPaths = @(
+            "$env:APPDATA\MongoDB Compass\Connections",
+            "$env:APPDATA\MongoDB Compass Community\Connections"
+        )
+        
+        $compassConfigPath = $null
+        foreach ($path in $compassPaths) {
+            if (Test-Path (Split-Path $path -Parent)) {
+                $compassConfigPath = $path
+                break
+            }
+        }
+        
+        # Default to regular MongoDB Compass if neither exists
+        if (-not $compassConfigPath) {
+            $compassConfigPath = "$env:APPDATA\MongoDB Compass\Connections"
+        }
+        
         $compassDir = Split-Path $compassConfigPath -Parent
         
         # Create directory if it doesn't exist

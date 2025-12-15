@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Loader2 } from 'lucide-react'
-import { useBundleStore, ManifestItem } from '../../store/bundleStore'
+import { ArrowLeft, Loader2, Key, AlertCircle } from 'lucide-react'
+import { useBundleStore, ManifestItem, DatabaseConnection } from '../../store/bundleStore'
 import { ipc } from '../../services'
 import { DatabaseScanResult } from '../../types/ipc'
+import AtlasPasswordModal from '../../components/AtlasPasswordModal'
 
 export default function DatabaseConnectionsPage() {
   const navigate = useNavigate()
   const [isScanning, setIsScanning] = useState(false)
   const [scanComplete, setScanComplete] = useState(false)
+  const [atlasPasswordModal, setAtlasPasswordModal] = useState<{
+    isOpen: boolean
+    connection: DatabaseConnection | null
+  }>({ isOpen: false, connection: null })
 
   // Get from store
   const { 
@@ -42,7 +47,9 @@ export default function DatabaseConnectionsPage() {
               host: conn.host,
               port: conn.port,
               database: conn.database || '',
-              selected: false
+              selected: false,
+              // Detect if this is an Atlas connection
+              isAtlas: conn.type === 'mongodb' && (conn.host.includes('mongodb.net') || conn.host.includes('mongodb.com')),
             }))
             
             setSelectedDatabases(connections)
@@ -227,17 +234,30 @@ export default function DatabaseConnectionsPage() {
                 <input
                   type="checkbox"
                   checked={conn.selected}
-                  onChange={() => toggleDatabase(conn.id)}
+                  onChange={() => {
+                    // If this is an Atlas connection being selected and no password is set, show modal
+                    if (conn.isAtlas && !conn.selected && !conn.password) {
+                      setAtlasPasswordModal({ isOpen: true, connection: conn });
+                      return;
+                    }
+                    toggleDatabase(conn.id);
+                  }}
                   className="mt-1 w-5 h-5 accent-accent-600"
                 />
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
-                    <div>
+                    <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-lg">{conn.name}</h3>
-                      <span className={`text-xs px-2 py-1 rounded mt-1 inline-block ${getTypeColor(conn.type)}`}>
-                        {conn.type.toUpperCase()}
-                      </span>
+                      {conn.isAtlas && (
+                        <div className="flex items-center gap-1 text-xs text-yellow-400">
+                          <Key className="w-3 h-3" />
+                          <span>Atlas</span>
+                        </div>
+                      )}
                     </div>
+                    <span className={`text-xs px-2 py-1 rounded ${getTypeColor(conn.type)}`}>
+                      {conn.type.toUpperCase()}
+                    </span>
                   </div>
 
                   {conn.selected && (
@@ -254,6 +274,18 @@ export default function DatabaseConnectionsPage() {
                         <span className="text-primary-400">Database:</span>
                         <span>{conn.database}</span>
                       </div>
+                      {conn.isAtlas && conn.password && (
+                        <div className="flex items-center gap-2 text-green-400 mt-2 pt-2 border-t border-primary-700">
+                          <Key className="w-3 h-3" />
+                          <span className="text-xs">Password configured</span>
+                        </div>
+                      )}
+                      {conn.isAtlas && !conn.password && (
+                        <div className="flex items-center gap-2 text-yellow-400 mt-2 pt-2 border-t border-primary-700">
+                          <AlertCircle className="w-3 h-3" />
+                          <span className="text-xs">Password required for Atlas connection</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -279,6 +311,26 @@ export default function DatabaseConnectionsPage() {
         </div>
           </>
         )}
+
+        {/* Atlas Password Modal */}
+        <AtlasPasswordModal
+          isOpen={atlasPasswordModal.isOpen}
+          connection={atlasPasswordModal.connection}
+          onClose={() => setAtlasPasswordModal({ isOpen: false, connection: null })}
+          onSubmit={(password) => {
+            if (atlasPasswordModal.connection) {
+              // Update the connection with the password and select it
+              setSelectedDatabases(
+                selectedDatabases.map(conn =>
+                  conn.id === atlasPasswordModal.connection!.id
+                    ? { ...conn, password, selected: true }
+                    : conn
+                )
+              );
+            }
+            setAtlasPasswordModal({ isOpen: false, connection: null });
+          }}
+        />
       </div>
     </div>
   )

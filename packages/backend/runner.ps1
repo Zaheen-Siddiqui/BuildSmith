@@ -147,10 +147,21 @@ while ($true) {
                     images = @($dockerData | ForEach-Object {
                         # Parse image name and tag
                         $imageParts = $_.image -split ':'
+                        $repository = $imageParts[0]
+                        $tag = if ($imageParts.Count -gt 1) { $imageParts[1] } else { "latest" }
+                        
+                        # Handle <none> repository or tag
+                        if ($repository -eq "<none>" -or [string]::IsNullOrWhiteSpace($repository)) {
+                            $repository = "<unnamed-image>"
+                        }
+                        if ($tag -eq "<none>" -or [string]::IsNullOrWhiteSpace($tag)) {
+                            $tag = "<no-tag>"
+                        }
+                        
                         @{
-                            id = $_.id
-                            repository = $imageParts[0]
-                            tag = if ($imageParts.Count -gt 1) { $imageParts[1] } else { "latest" }
+                            id = $_.id  # Docker image ID is always unique
+                            repository = $repository
+                            tag = $tag
                             size = $_.size
                             created = "Unknown"
                         }
