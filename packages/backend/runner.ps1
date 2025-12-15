@@ -219,7 +219,7 @@ while ($true) {
                     type = "devtools-scan-result"
                     tools = @($devToolsData | ForEach-Object {
                         @{
-                            id = "$($_.command)-$($_.version)"
+                            id = $_.id
                             name = $_.name
                             command = $_.command
                             version = $_.version
@@ -249,7 +249,7 @@ while ($true) {
                     type = "environment-scan-result"
                     variables = @($envVars | ForEach-Object {
                         @{
-                            id = "$($_.scope)-$($_.name)"
+                            id = $_.id
                             name = $_.name
                             value = $_.value
                             scope = $_.scope
@@ -257,7 +257,7 @@ while ($true) {
                     })
                     pathEntries = @($pathEntries | ForEach-Object {
                         @{
-                            id = "$($_.scope)-$($_.path)"
+                            id = $_.id
                             path = $_.path
                             scope = $_.scope
                             exists = $_.exists
@@ -285,7 +285,7 @@ while ($true) {
                     type = "packages-scan-result"
                     packages = @($packagesData | ForEach-Object {
                         @{
-                            id = "$($_.manager)-$($_.name)"
+                            id = $_.id
                             name = $_.name
                             version = $_.version
                             manager = $_.manager

@@ -16,6 +16,7 @@ function Get-InstalledDevTools {
     
     try {
         $tools = @()
+        $toolIndex = 0
         
         # Define tools to scan for with their version commands
         $toolDefinitions = @(
@@ -67,7 +68,7 @@ function Get-InstalledDevTools {
                     }
                     
                     $tools += @{
-                        id = $toolDef.Command
+                        id = "devtool-$toolIndex"
                         name = $toolDef.Name
                         command = $toolDef.Command
                         version = $version
@@ -75,6 +76,7 @@ function Get-InstalledDevTools {
                         type = "devtool"
                     }
                     
+                    $toolIndex++
                     Emit-Log -StepId "scan-devtools" -Level "info" -Text "Found $($toolDef.Name) v$version"
                 }
             }

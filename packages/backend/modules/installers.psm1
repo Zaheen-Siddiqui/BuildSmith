@@ -350,6 +350,7 @@ function Get-InstalledPackages {
     
     try {
         $packages = @()
+        $packageIndex = 0
         
         Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages..."
         
@@ -363,12 +364,13 @@ function Get-InstalledPackages {
                 if ($npmOutput.dependencies) {
                     foreach ($pkg in $npmOutput.dependencies.PSObject.Properties) {
                         $packages += @{
-                            id = "npm-" + $pkg.Name
+                            id = "package-$packageIndex"
                             name = $pkg.Name
                             version = $pkg.Value.version
                             manager = "npm"
                             type = "package"
                         }
+                        $packageIndex++
                     }
                     Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $($npmOutput.dependencies.PSObject.Properties.Count) npm packages"
                 }
@@ -387,12 +389,13 @@ function Get-InstalledPackages {
                 
                 foreach ($pkg in $pipOutput) {
                     $packages += @{
-                        id = "pip-" + $pkg.name
+                        id = "package-$packageIndex"
                         name = $pkg.name
                         version = $pkg.version
                         manager = "pip"
                         type = "package"
                     }
+                    $packageIndex++
                 }
                 Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $($pipOutput.Count) pip packages"
             }
@@ -439,12 +442,13 @@ function Get-InstalledPackages {
                         
                         if ($isDeveloperTool) {
                             $packages += @{
-                                id = "winget-" + $packageName
+                                id = "package-$packageIndex"
                                 name = $packageName
                                 version = $matches[2].Trim()
                                 manager = "winget"
                                 type = "package"
                             }
+                            $packageIndex++
                         }
                     }
                 }
@@ -466,12 +470,13 @@ function Get-InstalledPackages {
                 foreach ($line in $chocoOutput) {
                     if ($line -match '^(.+?)\|(.+)$') {
                         $packages += @{
-                            id = "chocolatey-" + $matches[1]
+                            id = "package-$packageIndex"
                             name = $matches[1]
                             version = $matches[2]
                             manager = "chocolatey"
                             type = "package"
                         }
+                        $packageIndex++
                     }
                 }
                 Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'chocolatey' }).Count) chocolatey packages"

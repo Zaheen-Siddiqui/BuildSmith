@@ -94,6 +94,7 @@ function Get-SystemPath {
     
     try {
         $pathEntries = @()
+        $pathIndex = 0
         
         Emit-Log -StepId "scan-path" -Level "info" -Text "Scanning PATH entries..."
         
@@ -102,12 +103,13 @@ function Get-SystemPath {
         if ($systemPath) {
             $systemPath -split ';' | Where-Object { $_ -and (Test-Path $_ -ErrorAction SilentlyContinue) } | ForEach-Object {
                 $pathEntries += @{
-                    id = "system-path-" + ($_ -replace '[^a-zA-Z0-9]', '-')
+                    id = "path-$pathIndex"
                     path = $_
                     scope = "system"
                     type = "path"
                     exists = $true
                 }
+                $pathIndex++
             }
         }
         
@@ -119,12 +121,13 @@ function Get-SystemPath {
                 $existsInSystem = $pathEntries | Where-Object { $_.path -eq $_ }
                 if (-not $existsInSystem) {
                     $pathEntries += @{
-                        id = "user-path-" + ($_ -replace '[^a-zA-Z0-9]', '-')
+                        id = "path-$pathIndex"
                         path = $_
                         scope = "user"
                         type = "path"
                         exists = $true
                     }
+                    $pathIndex++
                 }
             }
         }
