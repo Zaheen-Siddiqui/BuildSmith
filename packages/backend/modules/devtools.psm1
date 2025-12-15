@@ -253,7 +253,7 @@ function Install-DevTool {
         }
     }
     catch {
-        Emit-Log -StepId "setup-devtools" -Level "error" -Text "Failed to install $Name: $($_.Exception.Message)"
+        Emit-Log -StepId "setup-devtools" -Level "error" -Text "Failed to install ${Name}: $($_.Exception.Message)"
         return @{
             success = $false
             error = $_.Exception.Message

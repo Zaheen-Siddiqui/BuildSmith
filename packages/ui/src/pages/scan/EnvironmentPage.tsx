@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Loader2, Settings, FolderTree, Search } from 'lucide-react'
+import { ArrowLeft, Loader2, Settings, FolderTree, Search, Terminal } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
 import { EnvironmentScanResult } from '../../types/ipc'
+import ScanTerminal from '../../components/ScanTerminal'
+
+interface LogEntry {
+  stepId: string
+  level: string
+  text: string
+  timestamp: string
+}
 
 export default function EnvironmentPage() {
   const navigate = useNavigate()
@@ -11,6 +19,9 @@ export default function EnvironmentPage() {
   const [scanComplete, setScanComplete] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'variables' | 'path'>('variables')
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [showTerminal, setShowTerminal] = useState(false)
+  const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
 
   const { 
     selectedEnvironmentVars,
@@ -38,6 +49,16 @@ export default function EnvironmentPage() {
         
         // Subscribe to IPC events
         ipc.onEvent((event) => {
+          // Capture logs
+          if (event.type === 'log') {
+            setLogs(prev => [...prev, {
+              stepId: event.stepId,
+              level: event.level,
+              text: event.text,
+              timestamp: event.timestamp || new Date().toISOString()
+            }])
+          }
+          
           if (event.type === 'result' && event.stepId === 'scan-environment' && event.state === 'success') {
             const data = event.data as EnvironmentScanResult
             
@@ -283,6 +304,14 @@ export default function EnvironmentPage() {
                 </div>
                 <div className="flex gap-3">
                   <button
+                    onClick={() => setShowTerminal(true)}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
+                    title="View scan logs"
+                  >
+                    <Terminal className="w-4 h-4" />
+                    View Logs ({logs.length})
+                  </button>
+                  <button
                     onClick={activeTab === 'variables' ? handleSelectAllVars : handleSelectAllPaths}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition"
                   >
@@ -428,6 +457,16 @@ export default function EnvironmentPage() {
           </div>
         )}
       </div>
+
+      {/* Terminal Modal */}
+      <ScanTerminal
+        logs={logs}
+        isOpen={showTerminal}
+        isMaximized={isTerminalMaximized}
+        onClose={() => setShowTerminal(false)}
+        onToggleMaximize={() => setIsTerminalMaximized(!isTerminalMaximized)}
+        title="Environment & PATH Scan Output"
+      />
     </div>
   )
 }

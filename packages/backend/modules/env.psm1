@@ -191,7 +191,7 @@ function Set-EnvironmentVariable {
         }
     }
     catch {
-        Emit-Log -StepId "setup-env" -Level "error" -Text "Failed to set $Name: $($_.Exception.Message)"
+        Emit-Log -StepId "setup-env" -Level "error" -Text "Failed to set ${Name}: $($_.Exception.Message)"
         return @{
             success = $false
             error = $_.Exception.Message

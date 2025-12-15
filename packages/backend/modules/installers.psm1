@@ -399,11 +399,11 @@ function Get-InstalledPackages {
             Write-Verbose "Error scanning pip packages: $($_.Exception.Message)"
         }
         
-        # Scan winget packages
+        # Scan winget packages (this may take a moment)
         try {
             $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
             if ($wingetPath) {
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning winget packages..."
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning winget packages (this may take a moment)..."
                 # winget list outputs text, need to parse it
                 $wingetOutput = winget list --source winget 2>$null
                 
@@ -594,7 +594,7 @@ function Install-Package {
         }
     }
     catch {
-        Emit-Log -StepId "setup-packages" -Level "error" -Text "Failed to install $Name`: $($_.Exception.Message)"
+        Emit-Log -StepId "setup-packages" -Level "error" -Text "Failed to install ${Name}: $($_.Exception.Message)"
         return @{
             success = $false
             error = $_.Exception.Message
