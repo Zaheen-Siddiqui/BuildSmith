@@ -50,6 +50,8 @@ export default function DatabaseConnectionsPage() {
               selected: false,
               // Detect if this is an Atlas connection
               isAtlas: conn.type === 'mongodb' && (conn.host.includes('mongodb.net') || conn.host.includes('mongodb.com')),
+              // Pre-fill username if available from backend scan
+              username: conn.username || '',
             }))
             
             setSelectedDatabases(connections)
@@ -317,13 +319,13 @@ export default function DatabaseConnectionsPage() {
           isOpen={atlasPasswordModal.isOpen}
           connection={atlasPasswordModal.connection}
           onClose={() => setAtlasPasswordModal({ isOpen: false, connection: null })}
-          onSubmit={(password) => {
+          onSubmit={(credentials) => {
             if (atlasPasswordModal.connection) {
-              // Update the connection with the password and select it
+              // Update the connection with the username, password and select it
               setSelectedDatabases(
                 selectedDatabases.map(conn =>
                   conn.id === atlasPasswordModal.connection!.id
-                    ? { ...conn, password, selected: true }
+                    ? { ...conn, username: credentials.username, password: credentials.password, selected: true }
                     : conn
                 )
               );

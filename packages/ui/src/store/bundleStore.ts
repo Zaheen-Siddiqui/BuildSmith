@@ -47,6 +47,7 @@ export interface DatabaseConnection {
   port: number
   database: string
   selected: boolean
+  username?: string  // For Atlas connections - extracted from Compass or user-provided
   password?: string  // For Atlas connections - user will provide during setup
   isAtlas?: boolean  // True if this is a MongoDB Atlas connection
 }

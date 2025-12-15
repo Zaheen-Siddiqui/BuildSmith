@@ -42,14 +42,19 @@ function Get-DatabaseConnections {
                                 $connName = $connData.connectionInfo.favorite.name
                                 
                                 # Extract host and port from connection string
-                                # Formats: mongodb://localhost:27017, mongodb+srv://host/db, etc.
+                                # Formats: mongodb://localhost:27017, mongodb+srv://username:password@host/db, etc.
                                 $host = "localhost"
                                 $port = 27017
                                 $database = ""
+                                $username = ""
                                 
                                 if ($connString -match 'mongodb(\+srv)?://([^/]+)') {
                                     $hostPart = $matches[2]
-                                    # Remove username/password if present
+                                    # Extract username if present (format: username:password@host or username@host)
+                                    if ($hostPart -match '([^:@]+)[:@]') {
+                                        $username = $matches[1]
+                                    }
+                                    # Remove username/password to get host
                                     if ($hostPart -match '@(.+)') {
                                         $hostPart = $matches[1]
                                     }
@@ -84,6 +89,7 @@ function Get-DatabaseConnections {
                                     host = $host
                                     port = $port
                                     database = $database
+                                    username = $username
                                 }
                                 
                                 $compassFound = $true

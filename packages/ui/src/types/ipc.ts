@@ -177,6 +177,7 @@ export interface DatabaseScanResult {
     host: string
     port: number
     database?: string
+    username?: string  // MongoDB username if extracted from connection string
     source: 'compass' | 'workbench' | 'pgadmin' | 'other'
   }>
 }
