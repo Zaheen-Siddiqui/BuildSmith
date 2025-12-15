@@ -164,7 +164,7 @@ export default function AtlasPasswordModal({
         <div className="mb-6 p-3 bg-primary-900/50 rounded-lg border border-primary-700">
           <div className="text-xs text-primary-400 mb-1">Connection string will be:</div>
           <div className="font-mono text-xs text-primary-200 break-all">
-            mongodb+srv://{username}:<span className="text-accent-400">••••••••</span>@{host}/...
+            mongodb+srv://{username || '•••'}:<span className="text-accent-400">••••••••</span>@{host}/...
           </div>
         </div>
 
