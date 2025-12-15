@@ -77,9 +77,9 @@ export default function AtlasPasswordModal({
           <div className="w-12 h-12 rounded-lg bg-accent-500/20 flex items-center justify-center">
             <Lock className="w-6 h-6 text-accent-500" />
           </div>
-          <div>
+          <div className="flex-1">
             <h2 className="text-2xl font-bold">Atlas Connection Password</h2>
-            <p className="text-sm text-primary-300">{connection.name}</p>
+            <p className="text-lg font-semibold text-accent-400 mt-1">{connection.database || connection.name}</p>
           </div>
         </div>
 

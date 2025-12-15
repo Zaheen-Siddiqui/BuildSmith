@@ -250,6 +250,16 @@ export default function DockerImagesPage() {
           images={images}
           onToggle={handleToggleImage}
           onAdd={handleAddImage}
+          onSelectAll={() => {
+            const updatedImages = images.map(img => ({ ...img, selected: true }))
+            setImages(updatedImages)
+            setSelectedDockerImages(updatedImages.map(img => ({ ...img, size: img.size || 'Unknown' })))
+          }}
+          onDeselectAll={() => {
+            const updatedImages = images.map(img => ({ ...img, selected: false }))
+            setImages(updatedImages)
+            setSelectedDockerImages(updatedImages.map(img => ({ ...img, size: img.size || 'Unknown' })))
+          }}
           showAddCustom={true}
         />
 
