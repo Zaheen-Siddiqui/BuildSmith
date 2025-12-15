@@ -190,6 +190,36 @@ export class IPCService {
   }
 
   /**
+   * Scan DevOps tools
+   */
+  async scanDevTools(): Promise<void> {
+    const command: IPCCommand = {
+      cmd: 'scanDevTools'
+    }
+    await this.sendCommand(command)
+  }
+
+  /**
+   * Scan environment variables and PATH
+   */
+  async scanEnvironment(): Promise<void> {
+    const command: IPCCommand = {
+      cmd: 'scanEnvironment'
+    }
+    await this.sendCommand(command)
+  }
+
+  /**
+   * Scan installed packages (npm, pip, winget, chocolatey)
+   */
+  async scanPackages(): Promise<void> {
+    const command: IPCCommand = {
+      cmd: 'scanPackages'
+    }
+    await this.sendCommand(command)
+  }
+
+  /**
    * Create bundle from selected items
    */
   async createBundle(options: {
