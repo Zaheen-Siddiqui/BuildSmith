@@ -49,6 +49,9 @@ export default function DockerImageSelector({
   }
 
   const filteredImages = images.filter(img => {
+    // Filter out invalid images
+    if (!img || !img.id || !img.name) return false
+    
     const matchesSearch = img.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          img.tag.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesSearch
