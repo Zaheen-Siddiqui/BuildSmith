@@ -82,7 +82,8 @@ export default function PackagesPage() {
 
       performScan()
     }
-  }, []) // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
 
   const handleSelectAllForManager = (manager: typeof activeManager) => {
     setSelectedPackages(selectedPackages.map(pkg => 

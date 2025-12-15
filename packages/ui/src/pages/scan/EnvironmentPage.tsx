@@ -93,7 +93,8 @@ export default function EnvironmentPage() {
 
       performScan()
     }
-  }, []) // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
 
   const handleSelectAllVars = () => {
     setSelectedEnvironmentVars(selectedEnvironmentVars.map(v => ({ ...v, selected: true })))

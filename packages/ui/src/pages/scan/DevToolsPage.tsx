@@ -81,7 +81,8 @@ export default function DevToolsPage() {
 
       performScan()
     }
-  }, []) // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
 
   const handleSelectAll = () => {
     setSelectedDevTools(selectedDevTools.map(tool => ({ ...tool, selected: true })))
