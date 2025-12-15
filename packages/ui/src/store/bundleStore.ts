@@ -260,6 +260,7 @@ export const useBundleStore = create<BundleState>()(
             environment: false,
             packages: false,
             includeSecrets: false,
+            includeMongoData: false,
             encryptionPassphrase: '',
             confirmPassphrase: '',
           },

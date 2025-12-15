@@ -30,8 +30,7 @@ describe('bundleUtils', () => {
         devtools: false,
         environment: false,
         packages: false,
-        includeSecrets: false,
-        encryptionPassphrase: '',
+        includeSecrets: false,        includeMongoData: false,        encryptionPassphrase: '',
         confirmPassphrase: '',
       }
 
@@ -86,6 +85,7 @@ describe('bundleUtils', () => {
         environment: false,
         packages: false,
         includeSecrets: false,
+        includeMongoData: false,
         encryptionPassphrase: '',
         confirmPassphrase: '',
       }
@@ -131,6 +131,7 @@ describe('bundleUtils', () => {
         environment: false,
         packages: false,
         includeSecrets: false,
+        includeMongoData: false,
         encryptionPassphrase: '',
         confirmPassphrase: '',
       }
@@ -180,6 +181,7 @@ describe('bundleUtils', () => {
         environment: false,
         packages: false,
         includeSecrets: false,
+        includeMongoData: false,
         encryptionPassphrase: '',
         confirmPassphrase: '',
       }
@@ -225,6 +227,7 @@ describe('bundleUtils', () => {
         environment: false,
         packages: false,
         includeSecrets: true,
+        includeMongoData: false,
         encryptionPassphrase: 'test-pass',
         confirmPassphrase: 'test-pass',
       }
