@@ -202,53 +202,81 @@ export default function DevToolsPage() {
 
   const selectedCount = selectedDevTools.filter(t => t.selected).length
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => navigate('/scan')}
-            className="p-2 hover:bg-white/10 rounded-lg transition"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold">DevOps Tools</h1>
-            <p className="text-gray-400 mt-1">
-              Select which DevOps CLI tools to include in your bundle
-            </p>
-          </div>
-        </div>
+  // Calculate progress
+  const totalSteps = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment,
+    scanSettings.packages
+  ].filter(Boolean).length
+  
+  const currentStep = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases
+  ].filter(Boolean).length + 1
 
-        {/* Scanning State */}
-        {isScanning && (
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-12 text-center">
-            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-400" />
-            <p className="text-xl">Scanning for DevOps tools...</p>
-            <p className="text-gray-400 mt-2">Checking PATH for installed CLI tools</p>
+  return (
+    <div className="min-h-screen p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Progress Bar */}
+        {totalSteps > 1 && (
+          <div className="card p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Configuration Progress</span>
+              <span className="text-sm text-primary-300">Step {currentStep} of {totalSteps}</span>
+            </div>
+            <div className="w-full bg-primary-800 rounded-full h-2">
+              <div 
+                className="bg-accent-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+              />
+            </div>
           </div>
         )}
 
-        {/* Results */}
+        {/* Scanning State */}
+        {isScanning && (
+          <div className="card p-8 text-center">
+            <Loader2 className="w-16 h-16 text-accent-500 mx-auto mb-4 animate-spin" />
+            <h2 className="text-2xl font-bold mb-2">Scanning DevOps Tools</h2>
+            <p className="text-primary-300">Checking PATH for installed CLI tools...</p>
+          </div>
+        )}
+
+        {/* Results - Only show after scanning */}
         {!isScanning && scanComplete && (
-          <div className="space-y-6">
-            {/* Stats and Actions */}
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6">
+          <>
+            {/* Header */}
+            <div className="mb-8">
+              <button
+                onClick={() => navigate('/scan')}
+                className="flex items-center text-primary-300 hover:text-white mb-4 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Scan
+              </button>
+              <h1 className="text-4xl font-bold mb-2">DevOps Tools</h1>
+              <p className="text-primary-200">
+                Select which DevOps CLI tools to include in your bundle
+              </p>
+            </div>
+
+            {/* Summary Card */}
+            <div className="card p-6 mb-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Terminal className="w-8 h-8 text-blue-400" />
-                  <div>
-                    <p className="text-2xl font-bold">{selectedDevTools.length} Tools Found</p>
-                    <p className="text-gray-400">
-                      {selectedCount} selected
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-1">Selected Tools</h3>
+                  <p className="text-primary-300">
+                    {selectedCount} tools selected
+                  </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button
                     onClick={() => setShowTerminal(true)}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
+                    className="btn-secondary text-sm flex items-center gap-2"
                     title="View scan logs"
                   >
                     <Terminal className="w-4 h-4" />
@@ -256,13 +284,13 @@ export default function DevToolsPage() {
                   </button>
                   <button
                     onClick={handleSelectAll}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+                    className="btn-secondary text-sm"
                   >
                     Select All
                   </button>
                   <button
                     onClick={handleDeselectAll}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition"
+                    className="btn-secondary text-sm"
                   >
                     Deselect All
                   </button>
@@ -272,44 +300,38 @@ export default function DevToolsPage() {
 
             {/* Tools List */}
             {selectedDevTools.length === 0 ? (
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-12 text-center">
-                <Package className="w-16 h-16 mx-auto mb-4 text-gray-500" />
-                <p className="text-xl text-gray-400">No DevOps tools found</p>
-                <p className="text-gray-500 mt-2">Install tools like terraform, kubectl, or docker-compose to scan them</p>
+              <div className="card p-12 text-center">
+                <Package className="w-16 h-16 mx-auto mb-4 text-primary-500" />
+                <p className="text-xl text-primary-300">No DevOps tools found</p>
+                <p className="text-primary-400 mt-2">Install tools like terraform, kubectl, or docker-compose to scan them</p>
               </div>
             ) : (
-              <div className="grid gap-4">
+              <div className="space-y-4 mb-6">
                 {selectedDevTools.map((tool, index) => (
                   <div
                     key={tool.id || `devtool-${index}`}
-                    onClick={() => toggleDevTool(tool.id)}
-                    className={`
-                      bg-white/5 backdrop-blur-sm rounded-xl p-6 cursor-pointer
-                      transition-all duration-200 border-2
-                      ${tool.selected 
-                        ? 'border-blue-500 bg-blue-500/10' 
-                        : 'border-transparent hover:border-white/20'
-                      }
-                    `}
+                    className={`card p-4 transition-all ${
+                      tool.selected ? 'border-2 border-accent-600' : 'border-2 border-transparent'
+                    }`}
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
                         checked={tool.selected}
-                        onChange={() => {}}
-                        className="mt-1 w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                        onChange={() => toggleDevTool(tool.id)}
+                        className="mt-1 w-5 h-5 accent-accent-600"
                       />
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <Terminal className="w-5 h-5 text-blue-400" />
-                          <h3 className="text-xl font-semibold">{tool.name}</h3>
-                          <span className="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-full text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Terminal className="w-5 h-5 text-accent-400" />
+                          <h3 className="font-semibold text-lg">{tool.name}</h3>
+                          <span className="px-2 py-1 bg-accent-500/20 text-accent-400 rounded text-xs">
                             v{tool.version}
                           </span>
                         </div>
-                        <div className="space-y-1 text-sm text-gray-400">
-                          <p><span className="text-gray-500">Command:</span> {tool.command}</p>
-                          <p className="truncate"><span className="text-gray-500">Path:</span> {tool.path}</p>
+                        <div className="text-sm text-primary-300 space-y-1">
+                          <p><span className="text-primary-400">Command:</span> {tool.command}</p>
+                          <p className="truncate"><span className="text-primary-400">Path:</span> {tool.path}</p>
                         </div>
                       </div>
                     </div>
@@ -318,22 +340,22 @@ export default function DevToolsPage() {
               </div>
             )}
 
-            {/* Continue Button */}
-            <div className="flex justify-end gap-4">
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              <button
+                onClick={handleSaveAndContinue}
+                className="btn-accent flex-1"
+              >
+                Save & Continue
+              </button>
               <button
                 onClick={() => navigate('/scan')}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition"
+                className="btn-secondary"
               >
                 Back
               </button>
-              <button
-                onClick={handleSaveAndContinue}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition font-semibold"
-              >
-                Continue →
-              </button>
             </div>
-          </div>
+          </>
         )}
       </div>
 
