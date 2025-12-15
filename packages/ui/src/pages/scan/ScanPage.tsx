@@ -150,10 +150,33 @@ export default function ScanPage() {
               <div className="flex-1">
                 <div className="font-semibold text-lg">Database Connections</div>
                 <div className="text-sm text-primary-300">
-                  MongoDB Compass, connection strings, and local backups
+                  MongoDB Compass, MySQL Workbench, and other database connections
                 </div>
               </div>
             </label>
+
+            {/* MongoDB Data Backup - sub-option */}
+            {scanSettings.databases && (
+              <div className="ml-12 -mt-2">
+                <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors border-l-2 border-accent-500/30">
+                  <input
+                    type="checkbox"
+                    checked={scanSettings.includeMongoData}
+                    onChange={() => toggleItem('includeMongoData')}
+                    className="mt-1 mr-4 w-5 h-5 accent-accent-600"
+                  />
+                  <div className="flex-1">
+                    <div className="font-semibold">Include MongoDB Data</div>
+                    <div className="text-sm text-primary-300">
+                      Backup actual database data using mongodump (requires MongoDB Tools)
+                    </div>
+                    <div className="text-xs text-yellow-400 mt-1">
+                      ⚠️ May significantly increase bundle size
+                    </div>
+                  </div>
+                </label>
+              </div>
+            )}
 
             {/* DevOps Tools */}
             <label className="flex items-start p-4 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">

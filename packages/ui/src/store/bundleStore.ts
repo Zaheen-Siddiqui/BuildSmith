@@ -5,6 +5,7 @@ export interface ScanSettings {
   vscode: boolean
   docker: boolean
   databases: boolean
+  includeMongoData: boolean  // Include actual MongoDB database data
   devtools: boolean
   environment: boolean
   packages: boolean
@@ -46,6 +47,8 @@ export interface DatabaseConnection {
   port: number
   database: string
   selected: boolean
+  password?: string  // For Atlas connections - user will provide during setup
+  isAtlas?: boolean  // True if this is a MongoDB Atlas connection
 }
 
 export interface BundleMetadata {
@@ -138,6 +141,7 @@ export const useBundleStore = create<BundleState>()(
         vscode: false,
         docker: false,
         databases: false,
+        includeMongoData: false,
         devtools: false,
         environment: false,
         packages: false,
