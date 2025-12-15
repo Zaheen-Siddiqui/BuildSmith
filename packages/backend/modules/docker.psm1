@@ -393,5 +393,113 @@ function Get-DockerImages {
     }
 }
 
+function Restore-DockerImages {
+    <#
+    .SYNOPSIS
+        Restore Docker images from bundle or pull from registry
+    .PARAMETER Images
+        Array of image objects with name, tag, and optional tarPath
+    .OUTPUTS
+        Hashtable with success status and results
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [array]$Images
+    )
+    
+    try {
+        Emit-Log -StepId "setup-docker" -Level "info" -Text "Restoring $($Images.Count) Docker images..."
+        
+        # Check if Docker is installed
+        if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+            Emit-Log -StepId "setup-docker" -Level "error" -Text "Docker is not installed"
+            return @{
+                success = $false
+                error = "Docker not installed"
+            }
+        }
+        
+        # Check if Docker daemon is running
+        $dockerTest = docker info 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Emit-Log -StepId "setup-docker" -Level "error" -Text "Docker daemon is not running"
+            return @{
+                success = $false
+                error = "Docker daemon not running"
+            }
+        }
+        
+        $results = @()
+        $successCount = 0
+        $failedCount = 0
+        
+        foreach ($img in $Images) {
+            $imageName = "$($img.repository):$($img.tag)"
+            
+            try {
+                # If tar file exists in bundle, load from file
+                if ($img.tarPath -and (Test-Path $img.tarPath)) {
+                    Emit-Log -StepId "setup-docker" -Level "info" -Text "Loading $imageName from bundle..."
+                    
+                    $loadResult = Load-DockerImage -TarPath $img.tarPath -StepId "setup-docker"
+                    
+                    if ($loadResult.success) {
+                        $successCount++
+                        $results += @{
+                            image = $imageName
+                            success = $true
+                            method = "load"
+                        }
+                    } else {
+                        throw "Failed to load image"
+                    }
+                }
+                # Otherwise pull from registry
+                else {
+                    Emit-Log -StepId "setup-docker" -Level "info" -Text "Pulling $imageName from registry..."
+                    
+                    $pullResult = Pull-DockerImage -ImageName $img.repository -Tag $img.tag -StepId "setup-docker"
+                    
+                    if ($pullResult.success) {
+                        $successCount++
+                        $results += @{
+                            image = $imageName
+                            success = $true
+                            method = "pull"
+                        }
+                    } else {
+                        throw "Failed to pull image"
+                    }
+                }
+            }
+            catch {
+                $failedCount++
+                $results += @{
+                    image = $imageName
+                    success = $false
+                    error = $_.Exception.Message
+                }
+                Emit-Log -StepId "setup-docker" -Level "error" -Text "Failed to restore ${imageName}: $($_.Exception.Message)"
+            }
+        }
+        
+        Emit-Log -StepId "setup-docker" -Level "success" -Text "Restored $successCount images, $failedCount failed"
+        
+        return @{
+            success = ($failedCount -eq 0)
+            results = $results
+            successCount = $successCount
+            failedCount = $failedCount
+        }
+    }
+    catch {
+        Emit-Log -StepId "setup-docker" -Level "error" -Text "Error restoring images: $($_.Exception.Message)"
+        return @{
+            success = $false
+            error = $_.Exception.Message
+        }
+    }
+}
+
 # Export all public functions
-Export-ModuleMember -Function Get-DockerImages, Save-DockerImage, Load-DockerImage, Pull-DockerImage
+Export-ModuleMember -Function Get-DockerImages, Save-DockerImage, Load-DockerImage, Pull-DockerImage, Restore-DockerImages

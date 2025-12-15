@@ -338,5 +338,66 @@ function Install-VSCodeExtensions {
     }
 }
 
+function Install-VSCode {
+    <#
+    .SYNOPSIS
+        Install VS Code if not already installed
+    .OUTPUTS
+        Hashtable with success status and installation path
+    #>
+    param()
+    
+    try {
+        Emit-Log -StepId "install-vscode" -Level "info" -Text "Checking for VS Code installation..."
+        
+        # Check if already installed
+        $paths = Get-VSCodePath
+        if ($paths.exe) {
+            Emit-Log -StepId "install-vscode" -Level "info" -Text "VS Code already installed at $($paths.exe)"
+            return @{
+                success = $true
+                alreadyInstalled = $true
+                path = $paths.exe
+            }
+        }
+        
+        Emit-Log -StepId "install-vscode" -Level "info" -Text "Installing VS Code via winget..."
+        
+        # Check if winget is available
+        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+        if (-not $wingetCmd) {
+            throw "winget is not available. Please install App Installer from Microsoft Store."
+        }
+        
+        # Install VS Code using winget
+        $installCmd = "winget install --id Microsoft.VisualStudioCode --exact --silent --accept-package-agreements --accept-source-agreements"
+        Emit-Log -StepId "install-vscode" -Level "info" -Text "Running: $installCmd"
+        
+        $output = Invoke-Expression $installCmd 2>&1
+        
+        if ($LASTEXITCODE -eq 0) {
+            Emit-Log -StepId "install-vscode" -Level "success" -Text "VS Code installed successfully"
+            
+            # Refresh PATH to find newly installed VS Code
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+            
+            $paths = Get-VSCodePath
+            return @{
+                success = $true
+                path = $paths.exe
+            }
+        } else {
+            throw "winget install failed with exit code $LASTEXITCODE"
+        }
+    }
+    catch {
+        Emit-Log -StepId "install-vscode" -Level "error" -Text "Failed to install VS Code: $($_.Exception.Message)"
+        return @{
+            success = $false
+            error = $_.Exception.Message
+        }
+    }
+}
+
 # Export all public functions
-Export-ModuleMember -Function Export-VSCodeProfile, Import-VSCodeProfile, Install-VSCodeExtensions, Get-VSCodePath, Get-VSCodeProfiles
+Export-ModuleMember -Function Export-VSCodeProfile, Import-VSCodeProfile, Install-VSCodeExtensions, Install-VSCode, Get-VSCodePath, Get-VSCodeProfiles
