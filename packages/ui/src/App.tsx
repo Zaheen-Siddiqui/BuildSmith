@@ -16,6 +16,9 @@ import SetupConfigPage from './pages/setup/SetupConfigPage'
 import SetupVSCodePage from './pages/setup/SetupVSCodePage'
 import SetupDockerPage from './pages/setup/SetupDockerPage'
 import SetupDatabasesPage from './pages/setup/SetupDatabasesPage'
+import SetupDevToolsPage from './pages/setup/SetupDevToolsPage'
+import SetupEnvironmentPage from './pages/setup/SetupEnvironmentPage'
+import SetupPackagesPage from './pages/setup/SetupPackagesPage'
 import SetupPreviewPage from './pages/setup/SetupPreviewPage'
 import SetupProgressPage from './pages/setup/SetupProgressPage'
 import SetupCompletePage from './pages/setup/SetupCompletePage'
@@ -38,6 +41,9 @@ function App() {
           <Route path="/setup-vscode" element={<SetupVSCodePage />} />
           <Route path="/setup-docker" element={<SetupDockerPage />} />
           <Route path="/setup-databases" element={<SetupDatabasesPage />} />
+          <Route path="/setup-devtools" element={<SetupDevToolsPage />} />
+          <Route path="/setup-environment" element={<SetupEnvironmentPage />} />
+          <Route path="/setup-packages" element={<SetupPackagesPage />} />
           <Route path="/setup-preview" element={<SetupPreviewPage />} />
           <Route path="/setup-progress" element={<SetupProgressPage />} />
           <Route path="/setup-complete" element={<SetupCompletePage />} />

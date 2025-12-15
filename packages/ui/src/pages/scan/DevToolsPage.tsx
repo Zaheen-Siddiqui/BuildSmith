@@ -4,11 +4,22 @@ import { ArrowLeft, Loader2, Terminal, Package } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
 import { DevToolsScanResult } from '../../types/ipc'
+import ScanTerminal from '../../components/ScanTerminal'
+
+interface LogEntry {
+  stepId: string
+  level: string
+  text: string
+  timestamp: string
+}
 
 export default function DevToolsPage() {
   const navigate = useNavigate()
   const [isScanning, setIsScanning] = useState(false)
   const [scanComplete, setScanComplete] = useState(false)
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [showTerminal, setShowTerminal] = useState(false)
+  const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
 
   const { 
     selectedDevTools, 
@@ -34,6 +45,16 @@ export default function DevToolsPage() {
         
         // Subscribe to IPC events
         ipc.onEvent((event) => {
+          // Capture logs
+          if (event.type === 'log') {
+            setLogs(prev => [...prev, {
+              stepId: event.stepId,
+              level: event.level,
+              text: event.text,
+              timestamp: event.timestamp || new Date().toISOString()
+            }])
+          }
+          
           if (event.type === 'result' && event.stepId === 'scan-devtools' && event.state === 'success') {
             const data = event.data as DevToolsScanResult
             
@@ -224,6 +245,14 @@ export default function DevToolsPage() {
                 </div>
                 <div className="flex gap-3">
                   <button
+                    onClick={() => setShowTerminal(true)}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
+                    title="View scan logs"
+                  >
+                    <Terminal className="w-4 h-4" />
+                    View Logs ({logs.length})
+                  </button>
+                  <button
                     onClick={handleSelectAll}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition"
                   >
@@ -305,6 +334,16 @@ export default function DevToolsPage() {
           </div>
         )}
       </div>
+
+      {/* Terminal Modal */}
+      <ScanTerminal
+        logs={logs}
+        isOpen={showTerminal}
+        isMaximized={isTerminalMaximized}
+        onClose={() => setShowTerminal(false)}
+        onToggleMaximize={() => setIsTerminalMaximized(!isTerminalMaximized)}
+        title="DevOps Tools Scan Output"
+      />
     </div>
   )
 }

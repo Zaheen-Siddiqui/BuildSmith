@@ -73,13 +73,19 @@ export default function SetupConfigPage() {
   const handleContinue = () => {
     setSetupSelections(localSelections)
     
-    // Navigate to selectors in order: vscode -> docker -> databases -> preview
+    // Navigate to selectors in order: vscode -> docker -> databases -> devtools -> environment -> packages -> preview
     if (localSelections.vscode && vscodeExtensions.length > 0) {
       navigate('/setup-vscode')
     } else if (localSelections.docker && dockerImages.length > 0) {
       navigate('/setup-docker')
     } else if (localSelections.databases && databases.length > 0) {
       navigate('/setup-databases')
+    } else if (localSelections.devtools && devtools.length > 0) {
+      navigate('/setup-devtools')
+    } else if (localSelections.environment && environmentVars.length > 0) {
+      navigate('/setup-environment')
+    } else if (localSelections.packages && packages.length > 0) {
+      navigate('/setup-packages')
     } else {
       navigate('/setup-preview')
     }

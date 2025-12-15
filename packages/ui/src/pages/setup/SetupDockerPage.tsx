@@ -64,9 +64,15 @@ export default function SetupDockerPage() {
     }
 
     // Navigate to next page based on setup selections
-    // Order: vscode -> docker -> databases -> preview
+    // Order: vscode -> docker -> databases -> devtools -> environment -> packages -> preview
     if (setupSelections.databases && manifestItems.some(item => item.type === 'secret')) {
       navigate('/setup-databases')
+    } else if (setupSelections.devtools && manifestItems.some(item => item.type === 'installer')) {
+      navigate('/setup-devtools')
+    } else if (setupSelections.environment && manifestItems.some(item => item.name.startsWith('ENV:') || item.name.startsWith('PATH:'))) {
+      navigate('/setup-environment')
+    } else if (setupSelections.packages && manifestItems.some(item => item.type === 'package')) {
+      navigate('/setup-packages')
     } else {
       navigate('/setup-preview')
     }
