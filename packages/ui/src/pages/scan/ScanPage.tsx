@@ -34,11 +34,14 @@ export default function ScanPage() {
       }
     }
     
-    // Determine the flow order: VS Code → Docker → Database
+    // Determine the flow order: VS Code → Docker → Database → DevTools → Environment → Packages
     const configPages = []
     if (scanSettings.vscode) configPages.push('/vscode-profiles')
     if (scanSettings.docker) configPages.push('/docker-images')
     if (scanSettings.databases) configPages.push('/database-connections')
+    if (scanSettings.devtools) configPages.push('/devtools')
+    if (scanSettings.environment) configPages.push('/environment')
+    if (scanSettings.packages) configPages.push('/packages')
     
     // If no config pages needed, go directly to bundle preview with mock data
     if (configPages.length === 0) {

@@ -697,6 +697,112 @@ export class MockIPCService {
   }
 
   /**
+   * Scan DevOps CLI tools
+   */
+  async scanDevTools(): Promise<void> {
+    console.log('MockIPC scanDevTools called')
+    const stepId = 'scan-devtools'
+    
+    this.status(stepId, 'running', 'Scanning DevOps tools...')
+    await this.delay(500)
+    
+    const mockTools = [
+      { id: 'git', name: 'Git', command: 'git', version: '2.42.0', path: 'C:\\Program Files\\Git\\cmd\\git.exe' },
+      { id: 'docker', name: 'Docker', command: 'docker', version: '24.0.6', path: 'C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe' },
+      { id: 'kubectl', name: 'Kubectl', command: 'kubectl', version: '1.28.2', path: 'C:\\Users\\user\\.kube\\kubectl.exe' },
+      { id: 'terraform', name: 'Terraform', command: 'terraform', version: '1.6.0', path: 'C:\\Program Files\\Terraform\\terraform.exe' },
+    ]
+    
+    this.log(stepId, 'success', `Found ${mockTools.length} DevOps tools`)
+    
+    const result = {
+      type: 'devtools-scan-result' as const,
+      tools: mockTools
+    }
+    
+    this.status(stepId, 'success', 'DevOps tools scan complete')
+    this.emit({
+      type: 'result',
+      stepId,
+      state: 'success',
+      data: result
+    })
+  }
+
+  /**
+   * Scan environment variables and PATH
+   */
+  async scanEnvironment(): Promise<void> {
+    console.log('MockIPC scanEnvironment called')
+    const stepId = 'scan-environment'
+    
+    this.status(stepId, 'running', 'Scanning environment...')
+    await this.delay(500)
+    
+    const mockVariables = [
+      { id: 'path-var', name: 'PATH', value: 'C:\\Windows\\System32;C:\\Program Files\\Git\\cmd', scope: 'system' as const },
+      { id: 'java-home', name: 'JAVA_HOME', value: 'C:\\Program Files\\Java\\jdk-17', scope: 'system' as const },
+      { id: 'node-path', name: 'NODE_PATH', value: 'C:\\Program Files\\nodejs', scope: 'user' as const },
+    ]
+    
+    const mockPaths = [
+      { id: 'path-1', path: 'C:\\Windows\\System32', scope: 'system' as const, exists: true },
+      { id: 'path-2', path: 'C:\\Program Files\\Git\\cmd', scope: 'system' as const, exists: true },
+      { id: 'path-3', path: 'C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python311', scope: 'user' as const, exists: true },
+    ]
+    
+    this.log(stepId, 'success', `Found ${mockVariables.length} environment variables and ${mockPaths.length} PATH entries`)
+    
+    const result = {
+      type: 'environment-scan-result' as const,
+      variables: mockVariables,
+      pathEntries: mockPaths
+    }
+    
+    this.status(stepId, 'success', 'Environment scan complete')
+    this.emit({
+      type: 'result',
+      stepId,
+      state: 'success',
+      data: result
+    })
+  }
+
+  /**
+   * Scan installed packages
+   */
+  async scanPackages(): Promise<void> {
+    console.log('MockIPC scanPackages called')
+    const stepId = 'scan-packages'
+    
+    this.status(stepId, 'running', 'Scanning packages...')
+    await this.delay(500)
+    
+    const mockPackages = [
+      { id: 'npm-react', name: 'react', version: '18.2.0', manager: 'npm' as const },
+      { id: 'npm-typescript', name: 'typescript', version: '5.2.2', manager: 'npm' as const },
+      { id: 'pip-requests', name: 'requests', version: '2.31.0', manager: 'pip' as const },
+      { id: 'pip-django', name: 'django', version: '4.2.5', manager: 'pip' as const },
+      { id: 'winget-vscode', name: 'Microsoft.VisualStudioCode', version: '1.84.0', manager: 'winget' as const },
+    ]
+    
+    this.log(stepId, 'success', `Found ${mockPackages.length} packages`)
+    
+    const result = {
+      type: 'packages-scan-result' as const,
+      packages: mockPackages
+    }
+    
+    this.status(stepId, 'success', 'Packages scan complete')
+    this.emit({
+      type: 'result',
+      stepId,
+      state: 'success',
+      data: result
+    })
+  }
+
+  /**
    * Create bundle with selected items
    */
   async createBundle(options: {

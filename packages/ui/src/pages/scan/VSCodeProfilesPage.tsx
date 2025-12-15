@@ -67,6 +67,12 @@ export default function VSCodeProfilesPage() {
       navigate('/docker-images')
     } else if (scanSettings.databases) {
       navigate('/database-connections')
+    } else if (scanSettings.devtools) {
+      navigate('/devtools')
+    } else if (scanSettings.environment) {
+      navigate('/environment')
+    } else if (scanSettings.packages) {
+      navigate('/packages')
     } else {
       // No more config pages, generate manifest and go to preview
       generateManifest()
