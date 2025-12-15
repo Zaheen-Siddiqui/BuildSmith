@@ -42,6 +42,7 @@ export default function DevToolsPage() {
     if (!scanComplete && selectedDevTools.length === 0) {
       const performScan = async () => {
         setIsScanning(true)
+        setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
         ipc.onEvent((event) => {
@@ -80,7 +81,8 @@ export default function DevToolsPage() {
 
       performScan()
     }
-  }, [scanComplete, selectedDevTools.length, setSelectedDevTools])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
 
   const handleSelectAll = () => {
     setSelectedDevTools(selectedDevTools.map(tool => ({ ...tool, selected: true })))
@@ -277,9 +279,9 @@ export default function DevToolsPage() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {selectedDevTools.map((tool) => (
+                {selectedDevTools.map((tool, index) => (
                   <div
-                    key={tool.id}
+                    key={tool.id || `devtool-${index}`}
                     onClick={() => toggleDevTool(tool.id)}
                     className={`
                       bg-white/5 backdrop-blur-sm rounded-xl p-6 cursor-pointer

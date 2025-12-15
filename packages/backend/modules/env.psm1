@@ -39,7 +39,8 @@ function Get-EnvironmentVariables {
             
             # Skip sensitive variables
             if (-not $isSensitive) {
-                $variables += @{
+                $variables += [PSCustomObject]@{
+                    id = "system-$key"
                     name = $key
                     value = $systemVars[$key]
                     scope = "system"
@@ -61,7 +62,8 @@ function Get-EnvironmentVariables {
             
             # Skip sensitive variables and PATH (handled separately)
             if (-not $isSensitive -and $key -ne "Path") {
-                $variables += @{
+                $variables += [PSCustomObject]@{
+                    id = "user-$key"
                     name = $key
                     value = $userVars[$key]
                     scope = "user"
@@ -92,6 +94,7 @@ function Get-SystemPath {
     
     try {
         $pathEntries = @()
+        $pathIndex = 0
         
         Emit-Log -StepId "scan-path" -Level "info" -Text "Scanning PATH entries..."
         
@@ -99,12 +102,14 @@ function Get-SystemPath {
         $systemPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)
         if ($systemPath) {
             $systemPath -split ';' | Where-Object { $_ -and (Test-Path $_ -ErrorAction SilentlyContinue) } | ForEach-Object {
-                $pathEntries += @{
+                $pathEntries += [PSCustomObject]@{
+                    id = "path-$pathIndex"
                     path = $_
                     scope = "system"
                     type = "path"
                     exists = $true
                 }
+                $pathIndex++
             }
         }
         
@@ -115,12 +120,14 @@ function Get-SystemPath {
                 # Only add if not already in system PATH
                 $existsInSystem = $pathEntries | Where-Object { $_.path -eq $_ }
                 if (-not $existsInSystem) {
-                    $pathEntries += @{
+                    $pathEntries += [PSCustomObject]@{
+                        id = "path-$pathIndex"
                         path = $_
                         scope = "user"
                         type = "path"
                         exists = $true
                     }
+                    $pathIndex++
                 }
             }
         }

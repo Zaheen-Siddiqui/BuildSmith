@@ -13,6 +13,7 @@
     "electron:dev": "vite",
     "electron:start": "electron .",
     "build": "tsc && vite build && electron-builder",
+    "build:ci": "tsc && vite build",
     "package": "tsc && vite build && electron-builder",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",

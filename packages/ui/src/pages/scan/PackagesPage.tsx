@@ -44,6 +44,7 @@ export default function PackagesPage() {
     if (!scanComplete && selectedPackages.length === 0) {
       const performScan = async () => {
         setIsScanning(true)
+        setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
         ipc.onEvent((event) => {
@@ -81,7 +82,8 @@ export default function PackagesPage() {
 
       performScan()
     }
-  }, [scanComplete, selectedPackages.length, setSelectedPackages])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
 
   const handleSelectAllForManager = (manager: typeof activeManager) => {
     setSelectedPackages(selectedPackages.map(pkg => 
@@ -350,9 +352,9 @@ export default function PackagesPage() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {filteredPackages.map((pkg) => (
+                {filteredPackages.map((pkg, index) => (
                   <div
-                    key={pkg.id}
+                    key={pkg.id || `package-${pkg.manager}-${index}`}
                     onClick={() => togglePackage(pkg.id)}
                     className={`
                       bg-white/5 backdrop-blur-sm rounded-xl p-6 cursor-pointer

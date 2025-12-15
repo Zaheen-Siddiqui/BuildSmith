@@ -350,6 +350,7 @@ function Get-InstalledPackages {
     
     try {
         $packages = @()
+        $packageIndex = 0
         
         Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages..."
         
@@ -362,12 +363,14 @@ function Get-InstalledPackages {
                 
                 if ($npmOutput.dependencies) {
                     foreach ($pkg in $npmOutput.dependencies.PSObject.Properties) {
-                        $packages += @{
+                        $packages += [PSCustomObject]@{
+                            id = "package-$packageIndex"
                             name = $pkg.Name
                             version = $pkg.Value.version
                             manager = "npm"
                             type = "package"
                         }
+                        $packageIndex++
                     }
                     Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $($npmOutput.dependencies.PSObject.Properties.Count) npm packages"
                 }
@@ -385,12 +388,14 @@ function Get-InstalledPackages {
                 $pipOutput = pip list --format=json 2>$null | ConvertFrom-Json
                 
                 foreach ($pkg in $pipOutput) {
-                    $packages += @{
+                    $packages += [PSCustomObject]@{
+                        id = "package-$packageIndex"
                         name = $pkg.name
                         version = $pkg.version
                         manager = "pip"
                         type = "package"
                     }
+                    $packageIndex++
                 }
                 Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $($pipOutput.Count) pip packages"
             }
@@ -407,19 +412,47 @@ function Get-InstalledPackages {
                 # winget list outputs text, need to parse it
                 $wingetOutput = winget list --source winget 2>$null
                 
+                # Developer tool keywords for filtering
+                $devKeywords = @(
+                    'git', 'python', 'node', 'npm', 'java', 'jdk', 'maven', 'gradle',
+                    'docker', 'kubernetes', 'kubectl', 'terraform', 'aws', 'azure', 'gcloud',
+                    'vscode', 'visual studio', 'jetbrains', 'android studio',
+                    'postman', 'insomnia', 'mongodb', 'postgresql', 'mysql', 'redis',
+                    'github', 'gitlab', 'bitbucket', 'compiler', 'sdk', 'dotnet', '.net',
+                    'golang', 'rust', 'ruby', 'php', 'powershell', 'bash', 'terminal',
+                    'vim', 'emacs', 'sublime', 'atom', 'notepad++',
+                    'yarn', 'pnpm', 'composer', 'pip', 'cargo', 'go '
+                )
+                
                 # Parse winget output (skip header lines)
                 $lines = $wingetOutput -split "`n" | Select-Object -Skip 2
                 foreach ($line in $lines) {
                     if ($line -match '^\s*(.+?)\s+(.+?)\s+(.+?)\s*$') {
-                        $packages += @{
-                            name = $matches[1].Trim()
-                            version = $matches[2].Trim()
-                            manager = "winget"
-                            type = "package"
+                        $packageName = $matches[1].Trim()
+                        $packageLower = $packageName.ToLower()
+                        
+                        # Only include if it matches developer tool keywords
+                        $isDeveloperTool = $false
+                        foreach ($keyword in $devKeywords) {
+                            if ($packageLower -like "*$keyword*") {
+                                $isDeveloperTool = $true
+                                break
+                            }
+                        }
+                        
+                        if ($isDeveloperTool) {
+                            $packages += [PSCustomObject]@{
+                                id = "package-$packageIndex"
+                                name = $packageName
+                                version = $matches[2].Trim()
+                                manager = "winget"
+                                type = "package"
+                            }
+                            $packageIndex++
                         }
                     }
                 }
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'winget' }).Count) winget packages"
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'winget' }).Count) developer-related winget packages"
             }
         }
         catch {
@@ -436,12 +469,14 @@ function Get-InstalledPackages {
                 # Parse choco output (format: name|version)
                 foreach ($line in $chocoOutput) {
                     if ($line -match '^(.+?)\|(.+)$') {
-                        $packages += @{
+                        $packages += [PSCustomObject]@{
+                            id = "package-$packageIndex"
                             name = $matches[1]
                             version = $matches[2]
                             manager = "chocolatey"
                             type = "package"
                         }
+                        $packageIndex++
                     }
                 }
                 Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'chocolatey' }).Count) chocolatey packages"
