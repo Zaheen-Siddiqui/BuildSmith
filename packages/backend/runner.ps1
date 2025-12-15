@@ -462,6 +462,127 @@ while ($true) {
                 Emit-Event -Type "result" -StepId "setup-packages" -State $(if ($overallSuccess) { "success" } else { "failed" }) -Data $resultData
             }
             
+            "setupVSCode" {
+                Emit-Log -StepId "setup-vscode" -Level "info" -Text "Setting up VS Code..."
+                
+                # Check if VS Code is installed
+                $vscodePath = Get-VSCodePath
+                
+                if (-not $vscodePath) {
+                    Emit-Log -StepId "setup-vscode" -Level "info" -Text "VS Code not found, installing..."
+                    
+                    $installResult = Install-VSCode -StepId "setup-vscode"
+                    
+                    if (-not $installResult.success) {
+                        Emit-Log -StepId "setup-vscode" -Level "error" -Text "Failed to install VS Code"
+                        Emit-Event -Type "result" -StepId "setup-vscode" -State "failed" -Data @{
+                            type = "setup-vscode-result"
+                            success = $false
+                            error = $installResult.error
+                        }
+                        continue
+                    }
+                }
+                
+                # Import profile if specified
+                if ($command.profilePath) {
+                    Emit-Log -StepId "setup-vscode" -Level "info" -Text "Importing VS Code profile from: $($command.profilePath)"
+                    
+                    $importResult = Import-VSCodeProfile -ProfilePath $command.profilePath -StepId "setup-vscode"
+                    
+                    if ($importResult.success) {
+                        Emit-Log -StepId "setup-vscode" -Level "success" -Text "VS Code profile imported successfully"
+                    } else {
+                        Emit-Log -StepId "setup-vscode" -Level "error" -Text "Failed to import profile: $($importResult.error)"
+                    }
+                    
+                    Emit-Event -Type "result" -StepId "setup-vscode" -State $(if ($importResult.success) { "success" } else { "failed" }) -Data @{
+                        type = "setup-vscode-result"
+                        success = $importResult.success
+                        extensionsInstalled = $importResult.extensionsInstalled
+                        settingsImported = $importResult.settingsImported
+                    }
+                }
+            }
+            
+            "setupDocker" {
+                Emit-Log -StepId "setup-docker" -Level "info" -Text "Restoring Docker images..."
+                
+                if (-not $command.images -or $command.images.Count -eq 0) {
+                    Emit-Log -StepId "setup-docker" -Level "warning" -Text "No Docker images specified"
+                    Emit-Event -Type "result" -StepId "setup-docker" -State "success" -Data @{
+                        type = "setup-docker-result"
+                        success = $true
+                        message = "No images to restore"
+                    }
+                    continue
+                }
+                
+                $restoreResult = Restore-DockerImages -Images $command.images
+                
+                Emit-Event -Type "result" -StepId "setup-docker" -State $(if ($restoreResult.success) { "success" } else { "failed" }) -Data @{
+                    type = "setup-docker-result"
+                    success = $restoreResult.success
+                    results = $restoreResult.results
+                    successCount = $restoreResult.successCount
+                    failedCount = $restoreResult.failedCount
+                }
+            }
+            
+            "setupDatabases" {
+                Emit-Log -StepId "setup-databases" -Level "info" -Text "Setting up database connections..."
+                
+                # Install database tools if needed
+                if ($command.installTools) {
+                    foreach ($tool in $command.installTools) {
+                        Emit-Log -StepId "setup-databases" -Level "info" -Text "Installing $tool..."
+                        
+                        $installResult = Install-DatabaseTool -ToolName $tool -StepId "setup-databases"
+                        
+                        if (-not $installResult.success) {
+                            Emit-Log -StepId "setup-databases" -Level "error" -Text "Failed to install ${tool}: $($installResult.error)"
+                        }
+                    }
+                }
+                
+                # Import MongoDB Compass connections if specified
+                if ($command.compassConnectionsPath) {
+                    Emit-Log -StepId "setup-databases" -Level "info" -Text "Importing MongoDB Compass connections..."
+                    
+                    $importResult = Import-CompassConnections -ConnectionsFile $command.compassConnectionsPath -StepId "setup-databases"
+                    
+                    if ($importResult.success) {
+                        Emit-Log -StepId "setup-databases" -Level "success" -Text "Imported $($importResult.count) MongoDB connections"
+                    } else {
+                        Emit-Log -StepId "setup-databases" -Level "error" -Text "Failed to import connections: $($importResult.error)"
+                    }
+                }
+                
+                # Restore MongoDB dumps if specified
+                if ($command.mongoDumps) {
+                    foreach ($dump in $command.mongoDumps) {
+                        Emit-Log -StepId "setup-databases" -Level "info" -Text "Restoring MongoDB dump: $($dump.database)"
+                        
+                        $restoreResult = Restore-MongoDump `
+                            -DumpPath $dump.dumpPath `
+                            -ConnectionString $dump.connectionString `
+                            -Database $dump.database `
+                            -StepId "setup-databases"
+                        
+                        if ($restoreResult.success) {
+                            Emit-Log -StepId "setup-databases" -Level "success" -Text "Restored $($restoreResult.collections) collections"
+                        } else {
+                            Emit-Log -StepId "setup-databases" -Level "error" -Text "Failed to restore dump: $($restoreResult.error)"
+                        }
+                    }
+                }
+                
+                Emit-Event -Type "result" -StepId "setup-databases" -State "success" -Data @{
+                    type = "setup-databases-result"
+                    success = $true
+                }
+            }
+            
             "createBundle" {
                 Emit-Log -StepId "create-bundle" -Level "info" -Text "Creating bundle from selected items"
                 

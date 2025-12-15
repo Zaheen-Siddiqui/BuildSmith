@@ -525,4 +525,94 @@ function Restore-MongoDump {
     }
 }
 
-Export-ModuleMember -Function Get-DatabaseConnections, Export-MongoConnections, Import-CompassConnections, Export-MongoDump, Restore-MongoDump
+function Install-DatabaseTool {
+    <#
+    .SYNOPSIS
+        Install a database tool or driver
+    .PARAMETER ToolName
+        Name of the database tool (mongodb, mongodb-compass, mysql, postgresql, etc.)
+    .PARAMETER Version
+        Optional version to install
+    .PARAMETER StepId
+        Step identifier for event emission
+    .OUTPUTS
+        Hashtable with success status
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ToolName,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Version,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$StepId = "install-db-tool"
+    )
+    
+    try {
+        Emit-Status -StepId $StepId -State "running" -Message "Installing $ToolName..."
+        Emit-Log -StepId $StepId -Level "info" -Text "Installing database tool: $ToolName"
+        
+        # Map tool names to winget package IDs
+        $toolMap = @{
+            'mongodb' = 'MongoDB.Server'
+            'mongodb-compass' = 'MongoDB.Compass.Community'
+            'mongodb-shell' = 'MongoDB.Shell'
+            'mysql' = 'Oracle.MySQL'
+            'mysql-workbench' = 'Oracle.MySQLWorkbench'
+            'postgresql' = 'PostgreSQL.PostgreSQL'
+            'pgadmin' = 'PostgreSQL.pgAdmin'
+            'redis' = 'Redis.Redis'
+        }
+        
+        $packageId = $toolMap[$ToolName.ToLower()]
+        if (-not $packageId) {
+            throw "Unknown database tool: $ToolName. Supported tools: $($toolMap.Keys -join ', ')"
+        }
+        
+        # Check if winget is available
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            throw "winget is not available. Please install App Installer from Microsoft Store"
+        }
+        
+        # Build winget command
+        $wingetArgs = @('install', '--id', $packageId, '--silent', '--accept-package-agreements', '--accept-source-agreements')
+        
+        if ($Version) {
+            $wingetArgs += @('--version', $Version)
+        }
+        
+        Emit-Log -StepId $StepId -Level "debug" -Text "Running: winget $($wingetArgs -join ' ')"
+        
+        # Run winget install
+        $process = Start-Process -FilePath "winget" -ArgumentList $wingetArgs -NoNewWindow -Wait -PassThru
+        
+        if ($process.ExitCode -eq 0 -or $process.ExitCode -eq -1978335189) {
+            # Exit code -1978335189 (0x8A15000B) means already installed to a higher version
+            Emit-Log -StepId $StepId -Level "success" -Text "Successfully installed $ToolName"
+            Emit-Status -StepId $StepId -State "complete" -Message "Installation complete"
+            
+            # Refresh PATH environment variable
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+            
+            return @{
+                success = $true
+                tool = $ToolName
+                packageId = $packageId
+            }
+        }
+        else {
+            throw "winget install failed with exit code: $($process.ExitCode)"
+        }
+    }
+    catch {
+        Emit-Log -StepId $StepId -Level "error" -Text "Error installing ${ToolName}: $($_.Exception.Message)"
+        Emit-Status -StepId $StepId -State "failed" -Message "Installation failed"
+        return @{
+            success = $false
+            error = $_.Exception.Message
+        }
+    }
+}
+
+Export-ModuleMember -Function Get-DatabaseConnections, Export-MongoConnections, Import-CompassConnections, Export-MongoDump, Restore-MongoDump, Install-DatabaseTool
