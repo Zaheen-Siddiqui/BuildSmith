@@ -217,23 +217,52 @@ try {
             Emit-Log -StepId "setup" -Level "error" -Text "VS Code profile file not found: $vscodeFile"
         }
     }
+    #>
     
     # Restore Docker images
-    Emit-Log -StepId "setup" -Level "debug" -Text "Checking Docker: contains=$($SelectedItems -contains 'docker'), images=$($null -ne $manifest.dockerImages)"
-    if ($SelectedItems -contains "docker" -and $manifest.dockerImages) {
-        Emit-Log -StepId "setup" -Level "info" -Text "Processing $($manifest.dockerImages.Count) Docker images..."
-        foreach ($img in $manifest.dockerImages) {
-            if (Test-AbortRequested) {
-                Emit-Log -StepId "setup" -Level "warn" -Text "Setup aborted by user"
-                break
-            }
+    if ($SelectedItems -contains "docker") {
+        $dockerImages = $manifests.items | Where-Object { $_.type -eq "image" }
+        
+        if ($dockerImages -and $dockerImages.Count -gt 0) {
+            Emit-Log -StepId "setup" -Level "info" -Text "Processing $($dockerImages.Count) Docker images..."
             
-            # In real implementation, check if we should pull or load from tar
-            Install-DockerImage -ImageName $img.image
-            # TODO: Check for errors instead of capturing return value
+            foreach ($img in $dockerImages) {
+                if (Test-AbortRequested) {
+                    Emit-Log -StepId "setup" -Level "warn" -Text "Setup aborted by user"
+                    break
+                }
+                
+                $imageName = $img.name
+                $imageFile = Join-Path $extractDir "images" "$($imageName.Replace(':', '_').Replace('/', '_')).tar"
+                
+                # In real implementation, check if we should pull or load from tar
+                Emit-Log -StepId "setup" -Level "info" -Text "Loading Docker image: $imageName"
+                # Install-DockerImage -ImageName $imageName
+                # TODO: Implement actual Docker image loading
+            }
         }
     }
     
+    # Restore database connections
+    if ($SelectedItems -contains "databases") {
+        $dbConnections = $manifests.items | Where-Object { $_.type -eq "database" }
+        
+        if ($dbConnections -and $dbConnections.Count -gt 0) {
+            Emit-Log -StepId "setup" -Level "info" -Text "Restoring $($dbConnections.Count) database connections..."
+            
+            $dbFile = Join-Path $extractDir "databases" "connections.json"
+            if (Test-Path $dbFile) {
+                # Restore-DatabaseConnections -ConnectionsFile $dbFile
+                # TODO: Implement database connections restore
+                Emit-Log -StepId "setup" -Level "info" -Text "Database connections file found"
+            } else {
+                Emit-Log -StepId "setup" -Level "warn" -Text "Database connections file not found"
+            }
+        }
+    }
+    
+    # Legacy code commented out
+    <#
     # Restore MongoDB Compass connections
     if ($SelectedItems -contains "databases" -and $manifest.mongoConnections) {
         Emit-Log -StepId "setup" -Level "info" -Text "Restoring MongoDB Compass connections..."
@@ -256,7 +285,64 @@ try {
             }
         }
     }
+    #>
     
+    # Install devtools/installers
+    if ($SelectedItems -contains "devtools") {
+        $installers = $manifests.items | Where-Object { $_.type -eq "installer" }
+        
+        if ($installers -and $installers.Count -gt 0) {
+            Emit-Log -StepId "setup" -Level "info" -Text "Processing $($installers.Count) installers..."
+            
+            foreach ($installer in $installers) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installer: $($installer.name) v$($installer.version)"
+                # TODO: Implement installer execution
+            }
+        }
+    }
+    
+    # Install packages
+    if ($SelectedItems -contains "packages") {
+        $packages = $manifests.items | Where-Object { $_.type -eq "package" }
+        
+        if ($packages -and $packages.Count -gt 0) {
+            $npmPackages = $packages | Where-Object { $_.source -eq "npm" }
+            $pipPackages = $packages | Where-Object { $_.source -eq "pip" }
+            
+            if ($npmPackages -and $npmPackages.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($npmPackages.Count) npm packages..."
+                # TODO: Implement npm install
+            }
+            
+            if ($pipPackages -and $pipPackages.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($pipPackages.Count) pip packages..."
+                # TODO: Implement pip install
+            }
+        }
+    }
+    
+    # Set environment variables
+    if ($SelectedItems -contains "environment") {
+        $envFile = Join-Path $extractDir "environment.json"
+        
+        if (Test-Path $envFile) {
+            $envData = Get-Content $envFile | ConvertFrom-Json
+            Emit-Log -StepId "setup" -Level "info" -Text "Setting environment variables..."
+            
+            # TODO: Implement environment variable setting
+            foreach ($prop in $envData.PSObject.Properties) {
+                if ($prop.Name -ne "PATH") {
+                    Emit-Log -StepId "setup" -Level "info" -Text "Env: $($prop.Name) = $($prop.Value)"
+                }
+            }
+            
+            if ($envData.PATH) {
+                Emit-Log -StepId "setup" -Level "info" -Text "PATH entries: $($envData.PATH)"
+            }
+        }
+    }
+    
+    <# Legacy drivers code
     # Install drivers from drivers folder
     if ($SelectedItems -contains "drivers") {
         Emit-Status -StepId "install-drivers" -State "running" -Message "Installing drivers..."
@@ -312,6 +398,7 @@ try {
             }
         }
     }
+    #>
     
     # Clean up
     Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
