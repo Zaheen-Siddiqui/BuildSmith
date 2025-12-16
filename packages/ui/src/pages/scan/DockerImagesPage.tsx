@@ -194,7 +194,14 @@ export default function DockerImagesPage() {
   }
 
   // Calculate progress
-  const totalSteps = [scanSettings.vscode, scanSettings.docker, scanSettings.databases].filter(Boolean).length
+  const totalSteps = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment,
+    scanSettings.packages
+  ].filter(Boolean).length
   const currentStep = [scanSettings.vscode].filter(Boolean).length + 1
 
   return (

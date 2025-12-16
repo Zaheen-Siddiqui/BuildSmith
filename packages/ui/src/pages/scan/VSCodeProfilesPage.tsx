@@ -154,7 +154,14 @@ export default function VSCodeProfilesPage() {
   }
 
   // Calculate progress
-  const totalSteps = [scanSettings.vscode, scanSettings.docker, scanSettings.databases].filter(Boolean).length
+  const totalSteps = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment,
+    scanSettings.packages
+  ].filter(Boolean).length
   const currentStep = 1 // VS Code is always first
 
   const selectedCount = selectedVSCodeProfiles.filter(p => p.selected).length

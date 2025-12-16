@@ -136,8 +136,15 @@ export default function DatabaseConnectionsPage() {
   }
 
   // Calculate progress
-  const totalSteps = [scanSettings.vscode, scanSettings.docker, scanSettings.databases].filter(Boolean).length
-  const currentStep = totalSteps // Database is always last
+  const totalSteps = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment,
+    scanSettings.packages
+  ].filter(Boolean).length
+  const currentStep = [scanSettings.vscode, scanSettings.docker].filter(Boolean).length + 1
 
   const selectedCount = selectedDatabases.filter(db => db.selected).length
 
