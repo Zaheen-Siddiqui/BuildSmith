@@ -111,6 +111,29 @@ export default function SetupPreviewPage() {
     })
   }
 
+  if (setupSelections.environment) {
+    const envItems = manifestItems.filter(item => item.type === 'env' || item.type === 'path')
+    if (envItems.length > 0) {
+      const envVars = envItems.filter(item => item.type === 'env')
+      const pathEntries = envItems.filter(item => item.type === 'path')
+      
+      installationSteps.push({
+        name: 'Environment & PATH Variables',
+        items: [
+          ...envVars.map(item => `${item.name}=${item.version}`),
+          ...pathEntries.map(item => `PATH: ${item.name}`)
+        ],
+        estimatedTime: '1 minute',
+        requiresManual: true,
+        manualSteps: [
+          'Environment variables will be set in user scope',
+          'PATH entries will be appended to existing PATH',
+          'May require terminal/application restart to take effect'
+        ]
+      })
+    }
+  }
+
   if (setupSelections.packages) {
     const packageItems = manifestItems.filter(item => item.type === 'package')
     installationSteps.push({

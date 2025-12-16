@@ -50,19 +50,60 @@ try {
     
     # Scan VS Code
     if ($Options.vscode) {
-        Emit-Status -StepId "scan-vscode" -State "running" -Message "Scanning VS Code profile..."
+        Emit-Status -StepId "scan-vscode" -State "running" -Message "Scanning VS Code profiles..."
         Emit-Log -StepId "scan-vscode" -Level "info" -Text "Scanning VS Code installation..."
         
-        $vscodeProfile = Get-VSCodeProfiles
-        if ($vscodeProfile -and $vscodeProfile.extensions.Count -gt 0) {
-            $vscodeFile = Join-Path $bundleDir "vscode-profile.json"
-            $vscodeProfile | ConvertTo-Json -Depth 10 | Out-File $vscodeFile -Encoding UTF8
-            $manifest.vscodeProfile = "vscode-profile.json"
+        $vscodeProfiles = Get-VSCodeProfiles
+        if ($vscodeProfiles -and $vscodeProfiles.Count -gt 0) {
+            # Save profiles in VS Code native export format (multiple profile files)
+            $profilesDir = Join-Path $bundleDir "profiles"
+            New-Item -ItemType Directory -Path $profilesDir -Force | Out-Null
             
-            Emit-Log -StepId "scan-vscode" -Level "success" -Text "Found $($vscodeProfile.extensions.Count) extensions"
-            Emit-Status -StepId "scan-vscode" -State "complete" -Message "VS Code scan complete"
+            foreach ($profile in $vscodeProfiles) {
+                if ($profile.exportData) {
+                    # Use profile name for filename, sanitized
+                    $safeName = $profile.name -replace '[^\w\-]', '_'
+                    $profileFileName = "$safeName-profile.json"
+                    $profileFile = Join-Path $profilesDir $profileFileName
+                    $profile.exportData | ConvertTo-Json -Depth 10 | Out-File $profileFile -Encoding UTF8
+                    
+                    Emit-Log -StepId "scan-vscode" -Level "info" -Text "Saved profile: $($profile.name) -> $profileFileName"
+                }
+            }
+            
+            # Also save combined legacy format for backward compatibility
+            $vscodeFile = Join-Path $bundleDir "vscode-profiles.json"
+            $vscodeProfiles | ConvertTo-Json -Depth 10 | Out-File $vscodeFile -Encoding UTF8
+            $manifest.vscodeProfile = "vscode-profiles.json"
+            
+            $totalExtensions = ($vscodeProfiles | ForEach-Object { $_.extensions.Count } | Measure-Object -Sum).Sum
+            Emit-Log -StepId "scan-vscode" -Level "success" -Text "Found $($vscodeProfiles.Count) profile(s) with $totalExtensions total extensions"
+            
+            # Emit result with profile data for frontend
+            $resultData = @{
+                type = "vscode-scan-result"
+                profiles = @($vscodeProfiles | ForEach-Object {
+                    $safeName = $_.name -replace '[^\w\-]', '_'
+                    @{
+                        id = $_.id
+                        name = $_.name
+                        extensions = @($_.extensions | ForEach-Object {
+                            @{
+                                id = $_.id
+                                name = $_.id
+                                version = $_.version
+                            }
+                        })
+                        settingsCount = if ($_.settings) { ($_.settings.PSObject.Properties | Measure-Object).Count } else { 0 }
+                        keybindingsCount = if ($_.keybindings -and $_.keybindings -is [Array]) { $_.keybindings.Count } else { 0 }
+                        exportFile = "$safeName-profile.json"  # Reference to VS Code native format file
+                    }
+                })
+            }
+            
+            Emit-Event -Type "result" -StepId "scan-vscode" -State "success" -Data $resultData
         } else {
-            Emit-Log -StepId "scan-vscode" -Level "warn" -Text "No VS Code profile found or no extensions installed"
+            Emit-Log -StepId "scan-vscode" -Level "warn" -Text "No VS Code profiles found or no extensions installed"
             Emit-Status -StepId "scan-vscode" -State "complete" -Message "No VS Code data found"
         }
     }

@@ -14,40 +14,57 @@ export default function ImportPage() {
   const { setImportedBundle, setManifestItems, setScanSettings } = useBundleStore()
 
   const handleFileSelect = async () => {
+    console.log('[ImportPage] 📂 File selection initiated')
     setError('')
     
     // Use Electron's native file dialog
     if (window.electronAPI?.selectBundle) {
+      console.log('[ImportPage] ✅ Electron API available')
       const result = await window.electronAPI.selectBundle()
+      console.log('[ImportPage] 📄 File selection result:', result)
       
       if (result.success && result.filePath) {
         // Validate file type
         if (!result.fileName?.endsWith('.buildsmith') && !result.fileName?.endsWith('.zip')) {
+          console.error('[ImportPage] ❌ Invalid file type:', result.fileName)
           setError('Invalid file type. Please select a .buildsmith or .zip file')
           return
         }
         
         // Create a file-like object with the info we need
-        setSelectedFile({
+        const fileInfo = {
           name: result.fileName || '',
           path: result.filePath,
           size: 0, // We could get this via fs if needed
           lastModified: Date.now()
-        })
+        }
+        console.log('[ImportPage] ✅ File selected:', fileInfo)
+        setSelectedFile(fileInfo)
+      } else {
+        console.warn('[ImportPage] ⚠️ File selection cancelled or failed')
       }
     } else {
+      console.error('[ImportPage] ❌ Electron API not available')
       setError('File selection not available. Please ensure you are running in Electron.')
     }
   }
 
   const handleImportBundle = async () => {
-    if (!selectedFile) return
+    if (!selectedFile) {
+      console.warn('[ImportPage] ⚠️ No file selected')
+      return
+    }
+    
+    console.log('[ImportPage] 🚀 Starting bundle import...')
+    console.log('[ImportPage] 📦 File path:', selectedFile.path)
+    console.log('[ImportPage] 🔐 Encrypted:', selectedFile.name.includes('encrypted') || passphrase.length > 0)
     
     setDecrypting(true)
     setError('')
     
     try {
       // Simulate bundle parsing and decryption
+      console.log('[ImportPage] ⏳ Simulating bundle parsing (1.5s)...')
       await new Promise(resolve => setTimeout(resolve, 1500))
       
       // Mock bundle metadata from file
@@ -59,42 +76,85 @@ export default function ImportPage() {
         description: 'Imported development environment bundle',
         encrypted: selectedFile.name.includes('encrypted') || passphrase.length > 0,
       }
+      console.log('[ImportPage] 📋 Bundle metadata:', bundleMetadata)
       
       // Mock manifest items (in reality, would parse from bundle)
       const mockManifest = [
         { name: 'ESLint', version: '2.4.0', type: 'extension' as const, source: 'vscode', included: true },
         { name: 'Prettier', version: '9.10.4', type: 'extension' as const, source: 'vscode', included: true },
-        { name: 'nginx', version: '1.25.4', type: 'image' as const, source: 'docker', included: true },
-        { name: 'postgres', version: '15', type: 'image' as const, source: 'docker', included: true },
-        { name: 'Production MongoDB', version: '1.0.0', type: 'secret' as const, source: 'mongodb', included: true },
-        { name: 'Git', version: '2.42.0', type: 'installer' as const, source: 'https://git-scm.com', checksum: 'abc123', included: true },
-        { name: 'Node.js', version: '18.17.0', type: 'installer' as const, source: 'https://nodejs.org', checksum: 'def456', included: true },
+        { name: 'Python', version: '2023.22.1', type: 'extension' as const, source: 'vscode', included: true },
+        { name: 'TypeScript Nightly', version: '5.4.20231212', type: 'extension' as const, source: 'vscode', included: true },
+        { name: 'Tailwind CSS IntelliSense', version: '0.10.5', type: 'extension' as const, source: 'vscode', included: true },
+        { name: 'nginx:alpine', version: 'alpine', type: 'image' as const, source: 'docker', included: true },
+        { name: 'node:18-alpine', version: '18-alpine', type: 'image' as const, source: 'docker', included: true },
+        { name: 'Local MongoDB', version: '1.0.0', type: 'database' as const, source: 'mongodb', included: true },
+        { name: 'Development PostgreSQL', version: '1.0.0', type: 'database' as const, source: 'postgresql', included: true },
+        { name: 'Git', version: '2.43.0', type: 'installer' as const, source: 'https://git-scm.com', checksum: 'abc123', included: true },
+        { name: 'Node.js', version: '18.17.1', type: 'installer' as const, source: 'https://nodejs.org', checksum: 'def456', included: true },
+        { name: 'npm', version: '9.8.1', type: 'installer' as const, source: 'https://npmjs.com', checksum: 'ghi789', included: true },
+        { name: 'typescript', version: '5.3.3', type: 'package' as const, source: 'npm', included: true },
+        { name: 'eslint', version: '8.56.0', type: 'package' as const, source: 'npm', included: true },
+        { name: 'prettier', version: '3.1.1', type: 'package' as const, source: 'npm', included: true },
+        { name: 'requests', version: '2.31.0', type: 'package' as const, source: 'pip', included: true },
+        { name: 'flask', version: '3.0.0', type: 'package' as const, source: 'pip', included: true },
+        // Environment variables (from environment.json in bundle)
+        { name: 'NODE_ENV', version: 'development', type: 'env' as const, source: 'environment', included: true },
+        { name: 'TEST_API_KEY', version: 'test-api-key-12345', type: 'env' as const, source: 'environment', included: true },
+        { name: 'DOCKER_HOST', version: 'tcp://localhost:2375', type: 'env' as const, source: 'environment', included: true },
+        // PATH entries (from environment.json PATH field, split by semicolon)
+        { name: 'C:\\Program Files\\Git\\cmd', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
+        { name: 'C:\\Program Files\\nodejs', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
+        { name: '%USERPROFILE%\\.npm-global', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
       ]
+      console.log('[ImportPage] 📦 Manifest items count:', mockManifest.length)
+      console.log('[ImportPage] 📊 Manifest breakdown:')
+      console.log('  - VS Code extensions:', mockManifest.filter(i => i.type === 'extension').length)
+      console.log('  - Docker images:', mockManifest.filter(i => i.type === 'image').length)
+      console.log('  - Databases:', mockManifest.filter(i => i.type === 'database').length)
+      console.log('  - DevTools:', mockManifest.filter(i => i.type === 'installer').length)
+      console.log('  - Packages:', mockManifest.filter(i => i.type === 'package').length)
+      console.log('  - Environment vars:', mockManifest.filter(i => i.type === 'env').length)
+      console.log('  - PATH entries:', mockManifest.filter(i => i.type === 'path').length)
       
       // Set imported data in store
+      console.log('[ImportPage] 💾 Saving bundle metadata to store')
       setImportedBundle(bundleMetadata)
+      console.log('[ImportPage] 💾 Saving manifest items to store')
       setManifestItems(mockManifest)
       
       // Auto-detect what was in the bundle and set scan settings
       const hasVSCode = mockManifest.some(item => item.type === 'extension')
       const hasDocker = mockManifest.some(item => item.type === 'image')
-      const hasDatabase = mockManifest.some(item => item.type === 'secret')
+      const hasDatabase = mockManifest.some(item => item.type === 'database')
       const hasDevtools = mockManifest.some(item => item.type === 'installer')
+      const hasPackages = mockManifest.some(item => item.type === 'package')
+      const hasEnvironment = mockManifest.some(item => item.type === 'env' || item.type === 'path')
+      
+      console.log('[ImportPage] 🔍 Auto-detected categories:')
+      console.log('  - VS Code:', hasVSCode)
+      console.log('  - Docker:', hasDocker)
+      console.log('  - Databases:', hasDatabase)
+      console.log('  - DevTools:', hasDevtools)
+      console.log('  - Packages:', hasPackages)
+      console.log('  - Environment:', hasEnvironment)
       
       setScanSettings({
         vscode: hasVSCode,
         docker: hasDocker,
         databases: hasDatabase,
         devtools: hasDevtools,
+        packages: hasPackages,
+        environment: hasEnvironment,
         includeSecrets: bundleMetadata.encrypted,
       })
       
       // Navigate to setup configuration
+      console.log('[ImportPage] 🧭 Navigating to setup configuration...')
       navigate('/setup-config')
       
     } catch (err) {
+      console.error('[ImportPage] ❌ Import failed:', err)
       setError('Failed to import bundle. Please check the file and passphrase.')
-      console.error(err)
     } finally {
       setDecrypting(false)
     }

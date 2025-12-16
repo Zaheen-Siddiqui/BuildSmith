@@ -1,0 +1,88 @@
+{
+  "items": [
+    {
+      "name": "nginx:alpine",
+      "version": "alpine",
+      "type": "image",
+      "source": "docker",
+      "included": true
+    },
+    {
+      "name": "node:18-alpine",
+      "version": "18-alpine",
+      "type": "image",
+      "source": "docker",
+      "included": true
+    },
+    {
+      "name": "MongoDB Local",
+      "version": "1.0.0",
+      "type": "database",
+      "source": "mongodb",
+      "included": true
+    },
+    {
+      "name": "PostgreSQL Dev",
+      "version": "1.0.0",
+      "type": "database",
+      "source": "postgres",
+      "included": true
+    },
+    {
+      "name": "Git",
+      "version": "2.43.0",
+      "type": "installer",
+      "source": "git",
+      "included": true
+    },
+    {
+      "name": "Node.js",
+      "version": "18.17.1",
+      "type": "installer",
+      "source": "nodejs",
+      "included": true
+    },
+    {
+      "name": "npm",
+      "version": "9.8.1",
+      "type": "installer",
+      "source": "npm",
+      "included": true
+    },
+    {
+      "name": "typescript",
+      "version": "5.3.3",
+      "type": "package",
+      "source": "npm",
+      "included": true
+    },
+    {
+      "name": "eslint",
+      "version": "8.56.0",
+      "type": "package",
+      "source": "npm",
+      "included": true
+    },
+    {
+      "name": "prettier",
+      "version": "3.1.1",
+      "type": "package",
+      "source": "npm",
+      "included": true
+    },
+    {
+      "name": "requests",
+      "version": "2.31.0",
+      "type": "package",
+      "source": "pip",
+      "included": true
+    },
+    {
+      "name": "flask",
+      "version": "3.0.0",
+      "type": "package",
+      "source": "pip",
+      "included": true
+    }
+  ]
+}

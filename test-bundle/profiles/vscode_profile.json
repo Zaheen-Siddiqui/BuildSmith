@@ -1,0 +1,32 @@
+{
+  "name": "BuildSmith Test Profile",
+  "extensions": [
+    {
+      "id": "dbaeumer.vscode-eslint",
+      "version": "1.0.0"
+    },
+    {
+      "id": "esbenp.prettier-vscode",
+      "version": "1.0.0"
+    },
+    {
+      "id": "ms-python.python",
+      "version": "1.0.0"
+    },
+    {
+      "id": "ms-vscode.vscode-typescript-next",
+      "version": "1.0.0"
+    },
+    {
+      "id": "bradlc.vscode-tailwindcss",
+      "version": "1.0.0"
+    }
+  ],
+  "settings": {
+    "editor.fontSize": 14,
+    "editor.tabSize": 2,
+    "editor.formatOnSave": true,
+    "workbench.colorTheme": "Default Dark Modern"
+  },
+  "keybindings": []
+}

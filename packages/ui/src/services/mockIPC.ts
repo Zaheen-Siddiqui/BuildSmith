@@ -570,20 +570,31 @@ export class MockIPCService {
     }
     
     this.log(stepId, 'success', `Found ${mockExtensions.length} installed extensions`)
-    this.log(stepId, 'info', 'Reading settings and keybindings...')
+    this.log(stepId, 'info', 'Reading profiles, settings and keybindings...')
     await this.delay(500)
     
+    // Simulate multiple profiles (VS Code supports multiple profiles)
     const result = {
       type: 'vscode-scan-result' as const,
-      profiles: [{
-        id: 'default',
-        name: 'Default Profile',
-        extensions: mockExtensions,
-        settingsCount: 24,
-        keybindingsCount: 8
-      }]
+      profiles: [
+        {
+          id: 'default',
+          name: 'Default Profile',
+          extensions: mockExtensions.slice(0, 4), // First 4 extensions in default
+          settingsCount: 24,
+          keybindingsCount: 8
+        },
+        {
+          id: 'work',
+          name: 'Work Profile',
+          extensions: mockExtensions.slice(2), // Different set of extensions for work
+          settingsCount: 18,
+          keybindingsCount: 5
+        }
+      ]
     }
     
+    this.log(stepId, 'success', `Found ${result.profiles.length} VS Code profiles`)
     this.status(stepId, 'success', 'VS Code scan complete')
     this.emit({
       type: 'result',

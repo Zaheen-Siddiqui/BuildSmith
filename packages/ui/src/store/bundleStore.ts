@@ -17,7 +17,7 @@ export interface ScanSettings {
 export interface ManifestItem {
   name: string
   version: string
-  type: 'installer' | 'package' | 'extension' | 'image' | 'profile' | 'secret' | 'database'
+  type: 'installer' | 'package' | 'extension' | 'image' | 'profile' | 'secret' | 'database' | 'env' | 'path'
   source?: string
   checksum?: string
   included: boolean
