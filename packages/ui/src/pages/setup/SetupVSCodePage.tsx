@@ -39,6 +39,9 @@ export default function SetupVSCodePage() {
     // Extract VS Code extensions from manifest (grouped by profile)
     const vscodeItems = manifestItems.filter(item => item.type === 'extension')
     
+    console.log('[SetupVSCodePage] 📦 Total VS Code items from manifest:', vscodeItems.length)
+    console.log('[SetupVSCodePage] 📋 Sample items:', vscodeItems.slice(0, 3))
+    
     // Group extensions by profile (stored in 'source' field from profile name)
     const profileMap = new Map<string, VSCodeExtensionData[]>()
     
@@ -48,7 +51,7 @@ export default function SetupVSCodePage() {
       const extension: VSCodeExtensionData = {
         id: extensionId,
         name: item.name,
-        publisher: item.source,
+        publisher: undefined, // We don't have publisher info in manifest
         version: item.version,
         selected: selectedSetupVSCodeProfiles.includes(item.name) || setupSelections.vscode,
       }
@@ -58,6 +61,11 @@ export default function SetupVSCodePage() {
       }
       profileMap.get(profileName)!.push(extension)
     })
+    
+    console.log('[SetupVSCodePage] 📂 Profiles found:', Array.from(profileMap.keys()))
+    console.log('[SetupVSCodePage] 📊 Extensions per profile:', 
+      Array.from(profileMap.entries()).map(([name, exts]) => `${name}: ${exts.length}`)
+    )
     
     // Convert to profile array
     const profilesData: VSCodeProfileData[] = Array.from(profileMap.entries()).map(([name, extensions]) => ({
