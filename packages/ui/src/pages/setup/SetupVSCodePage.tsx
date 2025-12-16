@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Code } from 'lucide-react'
+import { ArrowLeft, Code, ChevronDown, ChevronRight } from 'lucide-react'
 import { useBundleStore } from '../../store/bundleStore'
 
 interface VSCodeExtensionData {
@@ -9,6 +9,13 @@ interface VSCodeExtensionData {
   publisher?: string
   version?: string
   selected: boolean
+}
+
+interface VSCodeProfileData {
+  name: string
+  extensions: VSCodeExtensionData[]
+  selected: boolean
+  expanded: boolean
 }
 
 export default function SetupVSCodePage() {
@@ -21,7 +28,7 @@ export default function SetupVSCodePage() {
     selectedSetupVSCodeProfiles,
     setSelectedSetupVSCodeProfiles,
   } = useBundleStore()
-  const [extensions, setExtensions] = useState<VSCodeExtensionData[]>([])
+  const [profiles, setProfiles] = useState<VSCodeProfileData[]>([])
 
   useEffect(() => {
     if (!importedBundle) {
@@ -37,7 +44,7 @@ export default function SetupVSCodePage() {
     
     vscodeItems.forEach((item, index) => {
       const profileName = item.source || 'Default Profile'
-      const extensionId = `${profileName}-${index}`
+      const extensionId = `${profileName}-${item.name}-${index}`
       const extension: VSCodeExtensionData = {
         id: extensionId,
         name: item.name,
@@ -52,30 +59,114 @@ export default function SetupVSCodePage() {
       profileMap.get(profileName)!.push(extension)
     })
     
-    // Flatten all extensions (we'll display them grouped in the UI)
-    const allExtensions = Array.from(profileMap.values()).flat()
-    setExtensions(allExtensions)
+    // Convert to profile array
+    const profilesData: VSCodeProfileData[] = Array.from(profileMap.entries()).map(([name, extensions]) => ({
+      name,
+      extensions,
+      selected: extensions.some(ext => ext.selected),
+      expanded: false,
+    }))
+    
+    setProfiles(profilesData)
   }, [importedBundle, manifestItems, setupSelections.vscode, selectedSetupVSCodeProfiles, navigate])
 
-  const handleToggleExtension = (id: string) => {
-    setExtensions(prev => 
-      prev.map(ext => 
-        ext.id === id ? { ...ext, selected: !ext.selected } : ext
+  const handleToggleProfile = (profileName: string) => {
+    setProfiles(prev => 
+      prev.map(profile => 
+        profile.name === profileName 
+          ? { ...profile, expanded: !profile.expanded } 
+          : profile
+      )
+    )
+  }
+
+  const handleSelectProfile = (profileName: string, selected: boolean) => {
+    setProfiles(prev => 
+      prev.map(profile => 
+        profile.name === profileName 
+          ? { 
+              ...profile, 
+              selected,
+              extensions: profile.extensions.map(ext => ({ ...ext, selected }))
+            } 
+          : profile
+      )
+    )
+  }
+
+  const handleToggleExtension = (profileName: string, extensionId: string) => {
+    setProfiles(prev => 
+      prev.map(profile => {
+        if (profile.name === profileName) {
+          const updatedExtensions = profile.extensions.map(ext => 
+            ext.id === extensionId ? { ...ext, selected: !ext.selected } : ext
+          )
+          return {
+            ...profile,
+            extensions: updatedExtensions,
+            selected: updatedExtensions.some(ext => ext.selected)
+          }
+        }
+        return profile
+      })
+    )
+  }
+
+  const handleSelectAllInProfile = (profileName: string) => {
+    setProfiles(prev => 
+      prev.map(profile => 
+        profile.name === profileName 
+          ? { 
+              ...profile, 
+              selected: true,
+              extensions: profile.extensions.map(ext => ({ ...ext, selected: true }))
+            } 
+          : profile
+      )
+    )
+  }
+
+  const handleDeselectAllInProfile = (profileName: string) => {
+    setProfiles(prev => 
+      prev.map(profile => 
+        profile.name === profileName 
+          ? { 
+              ...profile, 
+              selected: false,
+              extensions: profile.extensions.map(ext => ({ ...ext, selected: false }))
+            } 
+          : profile
       )
     )
   }
 
   const handleSelectAll = () => {
-    setExtensions(prev => prev.map(ext => ({ ...ext, selected: true })))
+    setProfiles(prev => 
+      prev.map(profile => ({
+        ...profile,
+        selected: true,
+        extensions: profile.extensions.map(ext => ({ ...ext, selected: true }))
+      }))
+    )
   }
 
   const handleDeselectAll = () => {
-    setExtensions(prev => prev.map(ext => ({ ...ext, selected: false })))
+    setProfiles(prev => 
+      prev.map(profile => ({
+        ...profile,
+        selected: false,
+        extensions: profile.extensions.map(ext => ({ ...ext, selected: false }))
+      }))
+    )
   }
 
   const handleContinue = () => {
     // Save selected extension names to store
-    const selectedExtensionNames = extensions.filter(ext => ext.selected).map(ext => ext.name)
+    const selectedExtensionNames = profiles
+      .flatMap(profile => profile.extensions)
+      .filter(ext => ext.selected)
+      .map(ext => ext.name)
+    
     setSelectedSetupVSCodeProfiles(selectedExtensionNames)
     
     const selectedCount = selectedExtensionNames.length
@@ -104,8 +195,13 @@ export default function SetupVSCodePage() {
 
   if (!importedBundle) return null
 
-  const selectedCount = extensions.filter(ext => ext.selected).length
-  const allSelected = extensions.length > 0 && extensions.every(ext => ext.selected)
+  const totalExtensions = profiles.reduce((sum, profile) => sum + profile.extensions.length, 0)
+  const selectedCount = profiles.reduce((sum, profile) => 
+    sum + profile.extensions.filter(ext => ext.selected).length, 0
+  )
+  const allSelected = totalExtensions > 0 && profiles.every(profile => 
+    profile.extensions.every(ext => ext.selected)
+  )
 
   return (
     <div className="min-h-screen p-8">
@@ -121,7 +217,7 @@ export default function SetupVSCodePage() {
           </button>
           <h1 className="text-4xl font-bold mb-2">VS Code Extensions & Profiles</h1>
           <p className="text-primary-200">
-            Select which VS Code extensions to install from bundle: <span className="text-accent-400">{importedBundle.name}</span>
+            Select which VS Code profiles and extensions to install from bundle: <span className="text-accent-400">{importedBundle.name}</span>
           </p>
         </div>
 
@@ -141,18 +237,20 @@ export default function SetupVSCodePage() {
           </div>
         </div>
 
-        {/* Extensions List */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">
-              Available Extensions ({extensions.length})
-              <span className="text-sm font-normal text-primary-300 ml-2">from profile: BuildSmith Test Profile</span>
-            </h2>
+        {/* Summary Card */}
+        <div className="card p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold mb-1">Selected Extensions</h3>
+              <p className="text-primary-300">
+                {selectedCount} extension{selectedCount !== 1 ? 's' : ''} from {profiles.filter(p => p.selected).length} profile{profiles.filter(p => p.selected).length !== 1 ? 's' : ''}
+              </p>
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={handleSelectAll}
                 className="btn-secondary text-sm"
-                disabled={allSelected || extensions.length === 0}
+                disabled={allSelected || totalExtensions === 0}
               >
                 Select All
               </button>
@@ -165,54 +263,108 @@ export default function SetupVSCodePage() {
               </button>
             </div>
           </div>
+        </div>
 
-          {extensions.length === 0 ? (
-            <div className="text-center py-12 text-primary-300">
+        {/* Profiles List */}
+        <div className="space-y-4 mb-6">
+          {profiles.length === 0 ? (
+            <div className="card p-12 text-center text-primary-300">
               <Code className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p>No VS Code extensions found in this bundle</p>
+              <p>No VS Code profiles found in this bundle</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {extensions.map((ext) => (
-                <div
-                  key={ext.id}
-                  onClick={() => handleToggleExtension(ext.id)}
-                  className={`
-                    p-4 rounded-lg border-2 transition-all cursor-pointer
-                    ${ext.selected 
-                      ? 'bg-accent-900/20 border-accent-600' 
-                      : 'bg-white/5 border-transparent hover:border-primary-600'
-                    }
-                  `}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={ext.selected}
-                        onChange={() => handleToggleExtension(ext.id)}
-                        className="w-5 h-5 rounded border-primary-600 bg-primary-800 text-accent-600 focus:ring-2 focus:ring-accent-500"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <div className="flex-1">
+            profiles.map((profile) => (
+              <div
+                key={profile.name}
+                className={`card transition-all ${
+                  profile.selected ? 'border-2 border-accent-600' : 'border-2 border-transparent'
+                }`}
+              >
+                {/* Profile Header */}
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={profile.selected}
+                      onChange={(e) => handleSelectProfile(profile.name, e.target.checked)}
+                      className="mt-1 w-5 h-5 accent-accent-600"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <Code className="w-5 h-5 text-accent-400" />
-                          <span className="font-medium">{ext.name}</span>
-                          {ext.version && (
-                            <span className="text-sm text-primary-400">v{ext.version}</span>
-                          )}
+                          <button
+                            onClick={() => handleToggleProfile(profile.name)}
+                            className="text-white hover:text-accent-400 transition-colors"
+                          >
+                            {profile.expanded ? (
+                              <ChevronDown className="w-5 h-5" />
+                            ) : (
+                              <ChevronRight className="w-5 h-5" />
+                            )}
+                          </button>
+                          <h3 className="text-lg font-bold">{profile.name}</h3>
+                          <span className="text-sm text-primary-400">
+                            ({profile.extensions.length} extension{profile.extensions.length !== 1 ? 's' : ''})
+                          </span>
                         </div>
-                        {ext.publisher && (
-                          <p className="text-sm text-primary-300 mt-1">
-                            Publisher: {ext.publisher}
-                          </p>
+                        {profile.expanded && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSelectAllInProfile(profile.name)}
+                              className="btn-secondary text-xs px-3 py-1"
+                            >
+                              Select All
+                            </button>
+                            <button
+                              onClick={() => handleDeselectAllInProfile(profile.name)}
+                              className="btn-secondary text-xs px-3 py-1"
+                            >
+                              Deselect All
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Extensions List (Collapsible) */}
+                {profile.expanded && (
+                  <div className="border-t border-primary-700 p-4 pt-4 space-y-2 bg-black/20">
+                    {profile.extensions.map((ext) => (
+                      <div
+                        key={ext.id}
+                        onClick={() => handleToggleExtension(profile.name, ext.id)}
+                        className={`
+                          p-3 rounded-lg border transition-all cursor-pointer
+                          ${ext.selected 
+                            ? 'bg-accent-900/20 border-accent-600/50' 
+                            : 'bg-white/5 border-transparent hover:border-primary-600'
+                          }
+                        `}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={ext.selected}
+                            onChange={() => handleToggleExtension(profile.name, ext.id)}
+                            className="w-4 h-4 rounded border-primary-600 bg-primary-800 text-accent-600 focus:ring-2 focus:ring-accent-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <div className="flex-1 flex items-center gap-2">
+                            <Code className="w-4 h-4 text-accent-400" />
+                            <span className="font-medium text-sm">{ext.name}</span>
+                            {ext.version && (
+                              <span className="text-xs text-primary-400">v{ext.version}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
 

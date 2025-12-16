@@ -101,6 +101,47 @@ export default function ImportPage() {
       console.log('  - Environment vars:', manifestsJson.items.filter((i: any) => i.type === 'env').length)
       console.log('  - PATH entries:', manifestsJson.items.filter((i: any) => i.type === 'path').length)
       
+      // Parse VS Code profile files from profiles/ folder
+      const profileFiles = Object.keys(zip.files).filter(path => 
+        path.startsWith('profiles/') && path.endsWith('-profile.json')
+      )
+      
+      console.log('[ImportPage] 📂 Found profile files:', profileFiles)
+      
+      // Read and parse each profile file and create manifest items per profile
+      const profileManifestItems: any[] = []
+      
+      for (const profilePath of profileFiles) {
+        const profileFile = zip.file(profilePath)
+        if (profileFile) {
+          const profileContent = await profileFile.async('string')
+          const profileData = JSON.parse(profileContent)
+          
+          console.log(`[ImportPage] 📋 Profile "${profileData.name}":`, profileData.extensions.length, 'extensions')
+          
+          // Add each extension from this profile to manifest with profile name as source
+          profileData.extensions.forEach((ext: any) => {
+            const extensionId = ext.identifier?.id || ext.id
+            
+            profileManifestItems.push({
+              name: extensionId,
+              version: ext.version || '1.0.0',
+              type: 'extension',
+              source: profileData.name, // Profile name as source
+              included: true
+            })
+          })
+        }
+      }
+      
+      // Combine profile items with other manifest items (non-extension items)
+      const nonExtensionItems = manifestsJson.items.filter((item: any) => item.type !== 'extension')
+      const allManifestItems = [...profileManifestItems, ...nonExtensionItems]
+      
+      console.log('[ImportPage] 📦 Total manifest items after profile parsing:', allManifestItems.length)
+      console.log('[ImportPage] 📊 Profile extensions:', profileManifestItems.length)
+      console.log('[ImportPage] 📊 Other items:', nonExtensionItems.length)
+      
       // Create bundle metadata
       const bundleMetadata = {
         id: bundleJson.id || Date.now().toString(),
@@ -115,15 +156,15 @@ export default function ImportPage() {
       console.log('[ImportPage] 💾 Saving bundle metadata to store')
       setImportedBundle(bundleMetadata)
       console.log('[ImportPage] 💾 Saving manifest items to store')
-      setManifestItems(manifestsJson.items)
+      setManifestItems(allManifestItems)
       
       // Auto-detect what was in the bundle and set scan settings
-      const hasVSCode = manifestsJson.items.some((item: any) => item.type === 'extension')
-      const hasDocker = manifestsJson.items.some((item: any) => item.type === 'image')
-      const hasDatabase = manifestsJson.items.some((item: any) => item.type === 'database')
-      const hasDevtools = manifestsJson.items.some((item: any) => item.type === 'installer')
-      const hasPackages = manifestsJson.items.some((item: any) => item.type === 'package')
-      const hasEnvironment = manifestsJson.items.some((item: any) => item.type === 'env' || item.type === 'path')
+      const hasVSCode = allManifestItems.some((item: any) => item.type === 'extension')
+      const hasDocker = allManifestItems.some((item: any) => item.type === 'image')
+      const hasDatabase = allManifestItems.some((item: any) => item.type === 'database')
+      const hasDevtools = allManifestItems.some((item: any) => item.type === 'installer')
+      const hasPackages = allManifestItems.some((item: any) => item.type === 'package')
+      const hasEnvironment = allManifestItems.some((item: any) => item.type === 'env' || item.type === 'path')
       
       console.log('[ImportPage] 🔍 Auto-detected categories:')
       console.log('  - VS Code:', hasVSCode)
