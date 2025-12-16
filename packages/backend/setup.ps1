@@ -131,14 +131,69 @@ try {
     
     Emit-Result -StepId "extract-bundle" -State "success" -Duration 2
     
-    # Read manifest
-    $manifestFile = Join-Path $extractDir "manifest.json"
-    $manifest = Get-Content $manifestFile | ConvertFrom-Json
+    # Read bundle metadata
+    $bundleFile = Join-Path $extractDir "bundle.json"
+    $bundleInfo = Get-Content $bundleFile | ConvertFrom-Json
     
-    Emit-Log -StepId "setup" -Level "info" -Text "Bundle from: $($manifest.meta.sourceHost)"
-    Emit-Log -StepId "setup" -Level "info" -Text "Created: $($manifest.meta.createdAt)"
+    # Read manifests
+    $manifestsFile = Join-Path $extractDir "manifests.json"
+    $manifests = Get-Content $manifestsFile | ConvertFrom-Json
     
-    # Install VS Code extensions
+    Emit-Log -StepId "setup" -Level "info" -Text "Bundle: $($bundleInfo.name)"
+    Emit-Log -StepId "setup" -Level "info" -Text "Created: $($bundleInfo.createdAt)"
+    Emit-Log -StepId "setup" -Level "info" -Text "Total items: $($manifests.totalItems)"
+    
+    # Install VS Code extensions from profiles
+    if ($SelectedItems -contains "vscode") {
+        Emit-Log -StepId "setup" -Level "info" -Text "Processing VS Code profiles..."
+        $profilesDir = Join-Path $extractDir "profiles"
+        
+        if (Test-Path $profilesDir) {
+            $profileFiles = Get-ChildItem -Path $profilesDir -Filter "*-profile.json"
+            
+            foreach ($profileFile in $profileFiles) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing extensions from profile: $($profileFile.BaseName)"
+                $profileData = Get-Content $profileFile.FullName | ConvertFrom-Json
+                
+                if ($profileData.extensions -and $profileData.extensions.Count -gt 0) {
+                    Emit-Progress -StepId "install-vscode" -Status "installing" -Message "Installing VS Code extensions from $($profileData.name)" -Percent 0
+                    
+                    $total = $profileData.extensions.Count
+                    $current = 0
+                    
+                    foreach ($ext in $profileData.extensions) {
+                        $current++
+                        $extId = $ext.identifier.id
+                        $percent = [math]::Round(($current / $total) * 100)
+                        
+                        Emit-Progress -StepId "install-vscode" -Status "installing" -Message "Installing $extId" -Percent $percent
+                        Emit-Log -StepId "install-vscode" -Level "info" -Text "Installing extension: $extId"
+                        
+                        try {
+                            $result = code --install-extension $extId --force 2>&1
+                            if ($LASTEXITCODE -eq 0) {
+                                Emit-Log -StepId "install-vscode" -Level "success" -Text "Installed: $extId"
+                            } else {
+                                Emit-Log -StepId "install-vscode" -Level "warning" -Text "Failed to install $extId : $result"
+                            }
+                        } catch {
+                            Emit-Log -StepId "install-vscode" -Level "error" -Text "Error installing $extId : $_"
+                        }
+                        
+                        Start-Sleep -Milliseconds 100
+                    }
+                    
+                    Emit-Progress -StepId "install-vscode" -Status "success" -Message "Completed installing extensions from $($profileData.name)" -Percent 100
+                    Emit-Result -StepId "install-vscode" -State "success" -Duration 5
+                }
+            }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No profiles directory found in bundle"
+        }
+    }
+    
+    # Legacy support: Old format with single vscode_profile.json
+    <#
     Emit-Log -StepId "setup" -Level "debug" -Text "Checking VS Code: contains=$($SelectedItems -contains 'vscode'), profile=$($manifest.vscodeProfile)"
     if ($SelectedItems -contains "vscode" -and $manifest.vscodeProfile) {
         Emit-Log -StepId "setup" -Level "info" -Text "Processing VS Code profile..."
