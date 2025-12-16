@@ -4,7 +4,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useBundleStore, DockerImage, ManifestItem } from '../../store/bundleStore'
 import DockerImageSelector, { DockerImageData } from '../../components/DockerImageSelector'
 import { ipc } from '../../services'
-import { DockerScanResult } from '../../types/ipc'
+import { DockerScanResult, IPCEvent } from '../../types/ipc'
 
 export default function DockerImagesPage() {
   const navigate = useNavigate()
@@ -50,7 +50,7 @@ export default function DockerImagesPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        const handleEvent = (event: { type: string; stepId: string; state: string; data?: DockerScanResult }) => {
+        const handleEvent = (event: IPCEvent) => {
           if (event.type === 'result' && event.stepId === 'scan-docker' && event.state === 'success') {
             const data = event.data as DockerScanResult
             

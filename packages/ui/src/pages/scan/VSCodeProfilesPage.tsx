@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Code, Package, CheckCircle } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
-import { VSCodeScanResult } from '../../types/ipc'
+import { VSCodeScanResult, IPCEvent } from '../../types/ipc'
 
 export default function VSCodeProfilesPage() {
   const navigate = useNavigate()
@@ -40,7 +40,7 @@ export default function VSCodeProfilesPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        const handleEvent = (event: { type: string; stepId: string; state: string; data?: VSCodeScanResult }) => {
+        const handleEvent = (event: IPCEvent) => {
           if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
             const data = event.data as VSCodeScanResult
             

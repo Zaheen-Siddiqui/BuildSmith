@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, AlertCircle, Key } from 'lucide-react'
 import { useBundleStore, ManifestItem, DatabaseConnection } from '../../store/bundleStore'
 import { ipc } from '../../services'
-import { DatabaseScanResult } from '../../types/ipc'
+import { DatabaseScanResult, IPCEvent } from '../../types/ipc'
 import AtlasPasswordModal from '../../components/AtlasPasswordModal'
 
 export default function DatabaseConnectionsPage() {
@@ -46,7 +46,7 @@ export default function DatabaseConnectionsPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        const handleEvent = (event: { type: string; stepId: string; state: string; data?: DatabaseScanResult }) => {
+        const handleEvent = (event: IPCEvent) => {
           if (event.type === 'result' && event.stepId === 'scan-database' && event.state === 'success') {
             const data = event.data as DatabaseScanResult
             

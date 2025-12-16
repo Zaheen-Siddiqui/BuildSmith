@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Package, Search, Terminal } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
-import { PackagesScanResult } from '../../types/ipc'
+import { PackagesScanResult, IPCEvent } from '../../types/ipc'
 import ScanTerminal from '../../components/ScanTerminal'
 
 interface LogEntry {
@@ -57,7 +57,7 @@ export default function PackagesPage() {
         setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
-        const handleEvent = (event: { type: string; stepId: string; state?: string; level?: string; text?: string; timestamp?: string; data?: PackagesScanResult }) => {
+        const handleEvent = (event: IPCEvent) => {
           // Capture logs
           if (event.type === 'log') {
             setLogs(prev => [...prev, {
