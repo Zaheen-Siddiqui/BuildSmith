@@ -1,0 +1,15 @@
+{
+  "name": "testing",
+  "extensions": [
+    {
+      "identifier": {
+        "id": "eamodio.gitlens"
+      },
+      "version": "14.5.0"
+    }
+  ],
+  "settings": {
+    "editor.fontSize": 16,
+    "workbench.colorTheme": "Visual Studio Dark"
+  }
+}

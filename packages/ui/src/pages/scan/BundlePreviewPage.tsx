@@ -21,6 +21,7 @@ export default function BundlePreviewPage() {
     currentBundle, 
     manifestItems, 
     scanSettings,
+    selectedVSCodeProfiles,
     updateManifestItem, 
     setExportPath, 
     resetScan, 
@@ -37,16 +38,23 @@ export default function BundlePreviewPage() {
       { name: 'manifests.json', type: 'file', size: '4.2 KB' },
     ]
     
-    // Add profiles folder if VS Code items exist
-    const vscodeItems = manifestItems.filter(item => item.type === 'extension')
-    if (vscodeItems.length > 0 || scanSettings.vscode) {
-      structure.push({
-        name: 'profiles',
-        type: 'folder',
-        children: [
-          { name: 'vscode_profile.json', type: 'file', size: `${Math.round(vscodeItems.length * 0.5)}KB` }
-        ]
-      })
+    // Add profiles folder with individual profile files
+    if (scanSettings.vscode && selectedVSCodeProfiles && selectedVSCodeProfiles.length > 0) {
+      const selectedProfiles = selectedVSCodeProfiles.filter(p => p.selected)
+      if (selectedProfiles.length > 0) {
+        structure.push({
+          name: 'profiles',
+          type: 'folder',
+          children: selectedProfiles.map(profile => {
+            const safeName = profile.name.replace(/[^\w-]/g, '_')
+            return {
+              name: `${safeName}-profile.json`,
+              type: 'file' as const,
+              size: `${Math.round(profile.extensions.length * 0.5)}KB`
+            }
+          })
+        })
+      }
     }
     
     // Add installers folder
@@ -148,6 +156,7 @@ export default function BundlePreviewPage() {
         metadata: currentBundle,
         manifestItems,
         scanSettings,
+        selectedVSCodeProfiles,  // Pass selected profiles
       })
       
       // Generate filename

@@ -123,6 +123,23 @@ function setupIPCHandlers() {
       fileName: path.basename(result.filePaths[0])
     }
   })
+
+  // Handle reading bundle file
+  ipcMain.handle('fs:readBundle', async (event, filePath: string) => {
+    try {
+      const fs = await import('node:fs/promises')
+      const buffer = await fs.readFile(filePath)
+      // Convert Buffer to ArrayBuffer
+      return { 
+        success: true, 
+        data: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('Error reading bundle file:', error)
+      return { success: false, error: errorMessage }
+    }
+  })
 }
 
 /**

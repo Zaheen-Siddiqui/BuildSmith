@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createBundle, parseBundle, encryptData, decryptData } from './bundleUtils'
-import { ManifestItem, BundleMetadata, ScanSettings } from '../store/bundleStore'
+import { ManifestItem, BundleMetadata, ScanSettings, VSCodeProfile } from '../store/bundleStore'
 import JSZip from 'jszip'
 
 describe('bundleUtils', () => {
@@ -90,19 +90,31 @@ describe('bundleUtils', () => {
         confirmPassphrase: '',
       }
 
+      const selectedVSCodeProfiles: VSCodeProfile[] = [
+        {
+          id: 'test-profile',
+          name: 'Test Profile',
+          extensions: ['ESLint', 'Prettier'],
+          settings: {},
+          selected: true,
+        }
+      ]
+
       const blob = await createBundle({
         metadata,
         manifestItems,
         scanSettings,
+        selectedVSCodeProfiles,
       })
 
       const zip = await JSZip.loadAsync(blob)
-      const profileJson = await zip.file('profiles/vscode_profile.json')?.async('string')
+      const profileJson = await zip.file('profiles/Test_Profile-profile.json')?.async('string')
       
       expect(profileJson).toBeDefined()
       const profile = JSON.parse(profileJson!)
+      expect(profile.name).toBe('Test Profile')
       expect(profile.extensions).toHaveLength(2)
-      expect(profile.extensions[0].id).toBe('ESLint')
+      expect(profile.extensions[0].identifier.id).toBe('ESLint')
     })
 
     it('should include Docker images when enabled', async () => {

@@ -26,6 +26,11 @@ export interface ElectronAPI {
   selectBundle: () => Promise<{ success: boolean; filePath?: string; fileName?: string }>
 
   /**
+   * Read a bundle file and return its contents as ArrayBuffer
+   */
+  readBundle: (filePath: string) => Promise<{ success: boolean; data?: ArrayBuffer; error?: string }>
+
+  /**
    * Check if running in development mode
    */
   isDev: () => boolean

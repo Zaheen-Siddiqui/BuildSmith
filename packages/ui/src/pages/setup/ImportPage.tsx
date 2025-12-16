@@ -1,7 +1,40 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Upload, FileCheck, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import { useBundleStore } from '../../store/bundleStore'
+import { useBundleStore, type ManifestItem } from '../../store/bundleStore'
+import JSZip from 'jszip'
+
+interface BundleJson {
+  id?: string
+  name?: string
+  createdAt?: string
+  description?: string
+  encrypted?: boolean
+}
+
+interface ImportedManifestItem {
+  name: string
+  version?: string
+  type: 'installer' | 'package' | 'extension' | 'image' | 'profile' | 'secret' | 'database' | 'env' | 'path'
+  source?: string
+  included?: boolean
+}
+
+interface ManifestsJson {
+  items: ImportedManifestItem[]
+}
+
+interface VSCodeExtension {
+  identifier?: { id: string }
+  id?: string
+  version?: string
+}
+
+interface ProfileData {
+  name: string
+  extensions: VSCodeExtension[]
+  settings?: Record<string, unknown>
+}
 
 export default function ImportPage() {
   const navigate = useNavigate()
@@ -57,78 +90,125 @@ export default function ImportPage() {
     
     console.log('[ImportPage] 🚀 Starting bundle import...')
     console.log('[ImportPage] 📦 File path:', selectedFile.path)
-    console.log('[ImportPage] 🔐 Encrypted:', selectedFile.name.includes('encrypted') || passphrase.length > 0)
     
     setDecrypting(true)
     setError('')
     
     try {
-      // Simulate bundle parsing and decryption
-      console.log('[ImportPage] ⏳ Simulating bundle parsing (1.5s)...')
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Read the bundle file using Electron API
+      console.log('[ImportPage] 📂 Reading bundle file...')
+      const result = await window.electronAPI.readBundle(selectedFile.path)
       
-      // Mock bundle metadata from file
-      const bundleMetadata = {
-        id: Date.now().toString(),
-        name: selectedFile.name.replace(/\.(buildsmith|zip)$/, ''),
-        path: selectedFile.path, // Store full path from Electron dialog
-        createdAt: new Date(selectedFile.lastModified).toISOString(),
-        description: 'Imported development environment bundle',
-        encrypted: selectedFile.name.includes('encrypted') || passphrase.length > 0,
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to read bundle file')
       }
-      console.log('[ImportPage] 📋 Bundle metadata:', bundleMetadata)
       
-      // Mock manifest items (in reality, would parse from bundle)
-      const mockManifest = [
-        { name: 'ESLint', version: '2.4.0', type: 'extension' as const, source: 'vscode', included: true },
-        { name: 'Prettier', version: '9.10.4', type: 'extension' as const, source: 'vscode', included: true },
-        { name: 'Python', version: '2023.22.1', type: 'extension' as const, source: 'vscode', included: true },
-        { name: 'TypeScript Nightly', version: '5.4.20231212', type: 'extension' as const, source: 'vscode', included: true },
-        { name: 'Tailwind CSS IntelliSense', version: '0.10.5', type: 'extension' as const, source: 'vscode', included: true },
-        { name: 'nginx:alpine', version: 'alpine', type: 'image' as const, source: 'docker', included: true },
-        { name: 'node:18-alpine', version: '18-alpine', type: 'image' as const, source: 'docker', included: true },
-        { name: 'Local MongoDB', version: '1.0.0', type: 'database' as const, source: 'mongodb', included: true },
-        { name: 'Development PostgreSQL', version: '1.0.0', type: 'database' as const, source: 'postgresql', included: true },
-        { name: 'Git', version: '2.43.0', type: 'installer' as const, source: 'https://git-scm.com', checksum: 'abc123', included: true },
-        { name: 'Node.js', version: '18.17.1', type: 'installer' as const, source: 'https://nodejs.org', checksum: 'def456', included: true },
-        { name: 'npm', version: '9.8.1', type: 'installer' as const, source: 'https://npmjs.com', checksum: 'ghi789', included: true },
-        { name: 'typescript', version: '5.3.3', type: 'package' as const, source: 'npm', included: true },
-        { name: 'eslint', version: '8.56.0', type: 'package' as const, source: 'npm', included: true },
-        { name: 'prettier', version: '3.1.1', type: 'package' as const, source: 'npm', included: true },
-        { name: 'requests', version: '2.31.0', type: 'package' as const, source: 'pip', included: true },
-        { name: 'flask', version: '3.0.0', type: 'package' as const, source: 'pip', included: true },
-        // Environment variables (from environment.json in bundle)
-        { name: 'NODE_ENV', version: 'development', type: 'env' as const, source: 'environment', included: true },
-        { name: 'TEST_API_KEY', version: 'test-api-key-12345', type: 'env' as const, source: 'environment', included: true },
-        { name: 'DOCKER_HOST', version: 'tcp://localhost:2375', type: 'env' as const, source: 'environment', included: true },
-        // PATH entries (from environment.json PATH field, split by semicolon)
-        { name: 'C:\\Program Files\\Git\\cmd', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
-        { name: 'C:\\Program Files\\nodejs', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
-        { name: '%USERPROFILE%\\.npm-global', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
-      ]
-      console.log('[ImportPage] 📦 Manifest items count:', mockManifest.length)
+      const zip = await JSZip.loadAsync(result.data)
+      
+      // Parse bundle.json
+      const bundleJsonFile = zip.file('bundle.json')
+      if (!bundleJsonFile) {
+        throw new Error('Invalid bundle: missing bundle.json')
+      }
+      const bundleJsonContent = await bundleJsonFile.async('string')
+      const bundleJson = JSON.parse(bundleJsonContent) as BundleJson
+      
+      console.log('[ImportPage] 📋 Bundle metadata:', bundleJson)
+      
+      // Parse manifests.json
+      const manifestsJsonFile = zip.file('manifests.json')
+      if (!manifestsJsonFile) {
+        throw new Error('Invalid bundle: missing manifests.json')
+      }
+      const manifestsContent = await manifestsJsonFile.async('string')
+      const manifestsJson = JSON.parse(manifestsContent) as ManifestsJson
+      
+      console.log('[ImportPage] 📦 Manifest items count:', manifestsJson.items.length)
       console.log('[ImportPage] 📊 Manifest breakdown:')
-      console.log('  - VS Code extensions:', mockManifest.filter(i => i.type === 'extension').length)
-      console.log('  - Docker images:', mockManifest.filter(i => i.type === 'image').length)
-      console.log('  - Databases:', mockManifest.filter(i => i.type === 'database').length)
-      console.log('  - DevTools:', mockManifest.filter(i => i.type === 'installer').length)
-      console.log('  - Packages:', mockManifest.filter(i => i.type === 'package').length)
-      console.log('  - Environment vars:', mockManifest.filter(i => i.type === 'env').length)
-      console.log('  - PATH entries:', mockManifest.filter(i => i.type === 'path').length)
+      console.log('  - VS Code extensions:', manifestsJson.items.filter(i => i.type === 'extension').length)
+      console.log('  - Docker images:', manifestsJson.items.filter(i => i.type === 'image').length)
+      console.log('  - Databases:', manifestsJson.items.filter(i => i.type === 'database').length)
+      console.log('  - DevTools:', manifestsJson.items.filter(i => i.type === 'installer').length)
+      console.log('  - Packages:', manifestsJson.items.filter(i => i.type === 'package').length)
+      console.log('  - Environment vars:', manifestsJson.items.filter(i => i.type === 'env').length)
+      console.log('  - PATH entries:', manifestsJson.items.filter(i => i.type === 'path').length)
+      
+      // Parse VS Code profile files from profiles/ folder
+      const profileFiles = Object.keys(zip.files).filter(path => {
+        // Normalize path to use forward slashes for cross-platform compatibility
+        const normalizedPath = path.replace(/\\/g, '/')
+        return normalizedPath.startsWith('profiles/') && normalizedPath.endsWith('-profile.json')
+      })
+      
+      console.log('[ImportPage] 📂 Found profile files:', profileFiles)
+      
+      // Read and parse each profile file and create manifest items per profile
+      const profileManifestItems: ManifestItem[] = []
+      
+      for (const profilePath of profileFiles) {
+        const profileFile = zip.file(profilePath)
+        if (profileFile) {
+          const profileContent = await profileFile.async('string')
+          const profileData = JSON.parse(profileContent) as ProfileData
+          
+          console.log(`[ImportPage] 📋 Profile "${profileData.name}":`, profileData.extensions.length, 'extensions')
+          
+          // Add each extension from this profile to manifest with profile name as source
+          profileData.extensions.forEach(ext => {
+            const extensionId = ext.identifier?.id || ext.id
+            
+            // Only add if extensionId is defined
+            if (extensionId) {
+              profileManifestItems.push({
+                name: extensionId,
+                version: ext.version || '1.0.0',
+                type: 'extension',
+                source: profileData.name, // Profile name as source
+                included: true
+              })
+            }
+          })
+        }
+      }
+      
+      // Combine profile items with other manifest items (non-extension items)
+      // Ensure all items have a version field (add default if missing)
+      const nonExtensionItems = manifestsJson.items
+        .filter(item => item.type !== 'extension')
+        .map(item => ({
+          ...item,
+          version: item.version || '1.0.0',
+          included: item.included !== undefined ? item.included : true
+        }))
+      const allManifestItems: ManifestItem[] = [...profileManifestItems, ...nonExtensionItems]
+      
+      console.log('[ImportPage] 📦 Total manifest items after profile parsing:', allManifestItems.length)
+      console.log('[ImportPage] 📊 Profile extensions:', profileManifestItems.length)
+      console.log('[ImportPage] 📊 Other items:', nonExtensionItems.length)
+      
+      // Create bundle metadata
+      const bundleMetadata = {
+        id: bundleJson.id || Date.now().toString(),
+        name: bundleJson.name || selectedFile.name.replace(/\.(buildsmith|zip)$/, ''),
+        path: selectedFile.path,
+        createdAt: bundleJson.createdAt || new Date().toISOString(),
+        description: bundleJson.description || 'Imported development environment bundle',
+        encrypted: bundleJson.encrypted || false,
+      }
       
       // Set imported data in store
       console.log('[ImportPage] 💾 Saving bundle metadata to store')
       setImportedBundle(bundleMetadata)
       console.log('[ImportPage] 💾 Saving manifest items to store')
-      setManifestItems(mockManifest)
+      setManifestItems(allManifestItems)
       
       // Auto-detect what was in the bundle and set scan settings
-      const hasVSCode = mockManifest.some(item => item.type === 'extension')
-      const hasDocker = mockManifest.some(item => item.type === 'image')
-      const hasDatabase = mockManifest.some(item => item.type === 'database')
-      const hasDevtools = mockManifest.some(item => item.type === 'installer')
-      const hasPackages = mockManifest.some(item => item.type === 'package')
-      const hasEnvironment = mockManifest.some(item => item.type === 'env' || item.type === 'path')
+      const hasVSCode = allManifestItems.some(item => item.type === 'extension')
+      const hasDocker = allManifestItems.some(item => item.type === 'image')
+      const hasDatabase = allManifestItems.some(item => item.type === 'database')
+      const hasDevtools = allManifestItems.some(item => item.type === 'installer')
+      const hasPackages = allManifestItems.some(item => item.type === 'package')
+      const hasEnvironment = allManifestItems.some(item => item.type === 'env' || item.type === 'path')
       
       console.log('[ImportPage] 🔍 Auto-detected categories:')
       console.log('  - VS Code:', hasVSCode)

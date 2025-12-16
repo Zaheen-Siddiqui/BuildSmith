@@ -131,14 +131,69 @@ try {
     
     Emit-Result -StepId "extract-bundle" -State "success" -Duration 2
     
-    # Read manifest
-    $manifestFile = Join-Path $extractDir "manifest.json"
-    $manifest = Get-Content $manifestFile | ConvertFrom-Json
+    # Read bundle metadata
+    $bundleFile = Join-Path $extractDir "bundle.json"
+    $bundleInfo = Get-Content $bundleFile | ConvertFrom-Json
     
-    Emit-Log -StepId "setup" -Level "info" -Text "Bundle from: $($manifest.meta.sourceHost)"
-    Emit-Log -StepId "setup" -Level "info" -Text "Created: $($manifest.meta.createdAt)"
+    # Read manifests
+    $manifestsFile = Join-Path $extractDir "manifests.json"
+    $manifests = Get-Content $manifestsFile | ConvertFrom-Json
     
-    # Install VS Code extensions
+    Emit-Log -StepId "setup" -Level "info" -Text "Bundle: $($bundleInfo.name)"
+    Emit-Log -StepId "setup" -Level "info" -Text "Created: $($bundleInfo.createdAt)"
+    Emit-Log -StepId "setup" -Level "info" -Text "Total items: $($manifests.totalItems)"
+    
+    # Install VS Code extensions from profiles
+    if ($SelectedItems -contains "vscode") {
+        Emit-Log -StepId "setup" -Level "info" -Text "Processing VS Code profiles..."
+        $profilesDir = Join-Path $extractDir "profiles"
+        
+        if (Test-Path $profilesDir) {
+            $profileFiles = Get-ChildItem -Path $profilesDir -Filter "*-profile.json"
+            
+            foreach ($profileFile in $profileFiles) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing extensions from profile: $($profileFile.BaseName)"
+                $profileData = Get-Content $profileFile.FullName | ConvertFrom-Json
+                
+                if ($profileData.extensions -and $profileData.extensions.Count -gt 0) {
+                    Emit-Progress -StepId "install-vscode" -Status "installing" -Message "Installing VS Code extensions from $($profileData.name)" -Percent 0
+                    
+                    $total = $profileData.extensions.Count
+                    $current = 0
+                    
+                    foreach ($ext in $profileData.extensions) {
+                        $current++
+                        $extId = $ext.identifier.id
+                        $percent = [math]::Round(($current / $total) * 100)
+                        
+                        Emit-Progress -StepId "install-vscode" -Status "installing" -Message "Installing $extId" -Percent $percent
+                        Emit-Log -StepId "install-vscode" -Level "info" -Text "Installing extension: $extId"
+                        
+                        try {
+                            $result = code --install-extension $extId --force 2>&1
+                            if ($LASTEXITCODE -eq 0) {
+                                Emit-Log -StepId "install-vscode" -Level "success" -Text "Installed: $extId"
+                            } else {
+                                Emit-Log -StepId "install-vscode" -Level "warning" -Text "Failed to install $extId : $result"
+                            }
+                        } catch {
+                            Emit-Log -StepId "install-vscode" -Level "error" -Text "Error installing $extId : $_"
+                        }
+                        
+                        Start-Sleep -Milliseconds 100
+                    }
+                    
+                    Emit-Progress -StepId "install-vscode" -Status "success" -Message "Completed installing extensions from $($profileData.name)" -Percent 100
+                    Emit-Result -StepId "install-vscode" -State "success" -Duration 5
+                }
+            }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No profiles directory found in bundle"
+        }
+    }
+    
+    # Legacy support: Old format with single vscode_profile.json
+    <#
     Emit-Log -StepId "setup" -Level "debug" -Text "Checking VS Code: contains=$($SelectedItems -contains 'vscode'), profile=$($manifest.vscodeProfile)"
     if ($SelectedItems -contains "vscode" -and $manifest.vscodeProfile) {
         Emit-Log -StepId "setup" -Level "info" -Text "Processing VS Code profile..."
@@ -162,23 +217,52 @@ try {
             Emit-Log -StepId "setup" -Level "error" -Text "VS Code profile file not found: $vscodeFile"
         }
     }
+    #>
     
     # Restore Docker images
-    Emit-Log -StepId "setup" -Level "debug" -Text "Checking Docker: contains=$($SelectedItems -contains 'docker'), images=$($null -ne $manifest.dockerImages)"
-    if ($SelectedItems -contains "docker" -and $manifest.dockerImages) {
-        Emit-Log -StepId "setup" -Level "info" -Text "Processing $($manifest.dockerImages.Count) Docker images..."
-        foreach ($img in $manifest.dockerImages) {
-            if (Test-AbortRequested) {
-                Emit-Log -StepId "setup" -Level "warn" -Text "Setup aborted by user"
-                break
-            }
+    if ($SelectedItems -contains "docker") {
+        $dockerImages = $manifests.items | Where-Object { $_.type -eq "image" }
+        
+        if ($dockerImages -and $dockerImages.Count -gt 0) {
+            Emit-Log -StepId "setup" -Level "info" -Text "Processing $($dockerImages.Count) Docker images..."
             
-            # In real implementation, check if we should pull or load from tar
-            Install-DockerImage -ImageName $img.image
-            # TODO: Check for errors instead of capturing return value
+            foreach ($img in $dockerImages) {
+                if (Test-AbortRequested) {
+                    Emit-Log -StepId "setup" -Level "warn" -Text "Setup aborted by user"
+                    break
+                }
+                
+                $imageName = $img.name
+                $imageFile = Join-Path $extractDir "images" "$($imageName.Replace(':', '_').Replace('/', '_')).tar"
+                
+                # In real implementation, check if we should pull or load from tar
+                Emit-Log -StepId "setup" -Level "info" -Text "Loading Docker image: $imageName"
+                # Install-DockerImage -ImageName $imageName
+                # TODO: Implement actual Docker image loading
+            }
         }
     }
     
+    # Restore database connections
+    if ($SelectedItems -contains "databases") {
+        $dbConnections = $manifests.items | Where-Object { $_.type -eq "database" }
+        
+        if ($dbConnections -and $dbConnections.Count -gt 0) {
+            Emit-Log -StepId "setup" -Level "info" -Text "Restoring $($dbConnections.Count) database connections..."
+            
+            $dbFile = Join-Path $extractDir "databases" "connections.json"
+            if (Test-Path $dbFile) {
+                # Restore-DatabaseConnections -ConnectionsFile $dbFile
+                # TODO: Implement database connections restore
+                Emit-Log -StepId "setup" -Level "info" -Text "Database connections file found"
+            } else {
+                Emit-Log -StepId "setup" -Level "warn" -Text "Database connections file not found"
+            }
+        }
+    }
+    
+    # Legacy code commented out
+    <#
     # Restore MongoDB Compass connections
     if ($SelectedItems -contains "databases" -and $manifest.mongoConnections) {
         Emit-Log -StepId "setup" -Level "info" -Text "Restoring MongoDB Compass connections..."
@@ -201,7 +285,64 @@ try {
             }
         }
     }
+    #>
     
+    # Install devtools/installers
+    if ($SelectedItems -contains "devtools") {
+        $installers = $manifests.items | Where-Object { $_.type -eq "installer" }
+        
+        if ($installers -and $installers.Count -gt 0) {
+            Emit-Log -StepId "setup" -Level "info" -Text "Processing $($installers.Count) installers..."
+            
+            foreach ($installer in $installers) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installer: $($installer.name) v$($installer.version)"
+                # TODO: Implement installer execution
+            }
+        }
+    }
+    
+    # Install packages
+    if ($SelectedItems -contains "packages") {
+        $packages = $manifests.items | Where-Object { $_.type -eq "package" }
+        
+        if ($packages -and $packages.Count -gt 0) {
+            $npmPackages = $packages | Where-Object { $_.source -eq "npm" }
+            $pipPackages = $packages | Where-Object { $_.source -eq "pip" }
+            
+            if ($npmPackages -and $npmPackages.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($npmPackages.Count) npm packages..."
+                # TODO: Implement npm install
+            }
+            
+            if ($pipPackages -and $pipPackages.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($pipPackages.Count) pip packages..."
+                # TODO: Implement pip install
+            }
+        }
+    }
+    
+    # Set environment variables
+    if ($SelectedItems -contains "environment") {
+        $envFile = Join-Path $extractDir "environment.json"
+        
+        if (Test-Path $envFile) {
+            $envData = Get-Content $envFile | ConvertFrom-Json
+            Emit-Log -StepId "setup" -Level "info" -Text "Setting environment variables..."
+            
+            # TODO: Implement environment variable setting
+            foreach ($prop in $envData.PSObject.Properties) {
+                if ($prop.Name -ne "PATH") {
+                    Emit-Log -StepId "setup" -Level "info" -Text "Env: $($prop.Name) = $($prop.Value)"
+                }
+            }
+            
+            if ($envData.PATH) {
+                Emit-Log -StepId "setup" -Level "info" -Text "PATH entries: $($envData.PATH)"
+            }
+        }
+    }
+    
+    <# Legacy drivers code
     # Install drivers from drivers folder
     if ($SelectedItems -contains "drivers") {
         Emit-Status -StepId "install-drivers" -State "running" -Message "Installing drivers..."
@@ -257,6 +398,7 @@ try {
             }
         }
     }
+    #>
     
     # Clean up
     Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
