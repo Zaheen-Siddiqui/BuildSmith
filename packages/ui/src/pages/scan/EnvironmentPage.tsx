@@ -605,19 +605,19 @@ const filteredVars = selectedEnvironmentVars.filter(v => {
               </div>
             )}
 
-            {/* Continue Button */}
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => navigate('/scan')}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition"
-              >
-                Back
-              </button>
+            {/* Action Buttons */}
+            <div className="flex gap-4">
               <button
                 onClick={handleSaveAndContinue}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition font-semibold"
+                className="btn-accent flex-1"
               >
-                Continue →
+                Save & Continue
+              </button>
+              <button
+                onClick={() => navigate('/scan')}
+                className="btn-secondary"
+              >
+                Back
               </button>
             </div>
           </>

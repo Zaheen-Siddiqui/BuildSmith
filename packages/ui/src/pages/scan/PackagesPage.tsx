@@ -442,19 +442,19 @@ export default function PackagesPage() {
               </div>
             )}
 
-            {/* Continue Button */}
-            <div className="flex justify-end gap-4">
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              <button
+                onClick={handleSaveAndContinue}
+                className="btn-accent flex-1"
+              >
+                Save & Continue
+              </button>
               <button
                 onClick={() => navigate('/scan')}
                 className="btn-secondary"
               >
                 Back
-              </button>
-              <button
-                onClick={handleSaveAndContinue}
-                className="btn-accent"
-              >
-                Continue →
               </button>
             </div>
           </div>
