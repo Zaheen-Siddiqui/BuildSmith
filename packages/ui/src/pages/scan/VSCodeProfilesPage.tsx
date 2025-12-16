@@ -123,20 +123,27 @@ export default function VSCodeProfilesPage() {
         })
       })
     
-    // Add VS Code profiles/extensions
+    // Add VS Code profiles/extensions (deduplicated)
+    const extensionIds = new Set<string>()
     selectedVSCodeProfiles
       .filter(profile => profile.selected)
       .forEach(profile => {
         profile.extensions.forEach(ext => {
-          manifestItems.push({
-            name: ext,
-            version: '1.0.0',
-            type: 'extension',
-            source: 'vscode',
-            included: true,
-          })
+          // Only add if not already added
+          if (!extensionIds.has(ext)) {
+            extensionIds.add(ext)
+            manifestItems.push({
+              name: ext,
+              version: '1.0.0',
+              type: 'extension',
+              source: 'vscode',
+              included: true,
+            })
+          }
         })
       })
+    
+    console.log(`📦 Generated manifest with ${extensionIds.size} unique extensions from ${selectedVSCodeProfiles.filter(p => p.selected).length} profile(s)`)
     
     // Add database connections
     selectedDatabases
