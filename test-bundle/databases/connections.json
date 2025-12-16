@@ -1,0 +1,16 @@
+{
+  "connections": [
+    {
+      "name": "MongoDB Local",
+      "type": "mongodb",
+      "uri": "mongodb://localhost:27017",
+      "encrypted": false
+    },
+    {
+      "name": "PostgreSQL Dev",
+      "type": "postgres",
+      "uri": "postgresql://localhost:5432/devdb",
+      "encrypted": false
+    }
+  ]
+}

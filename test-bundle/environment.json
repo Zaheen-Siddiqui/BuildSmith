@@ -1,0 +1,6 @@
+{
+  "PATH": "C:\\Program Files\\Git\\cmd;C:\\Program Files\\nodejs;%USERPROFILE%\\.npm-global",
+  "NODE_ENV": "development",
+  "TEST_API_KEY": "test-api-key-12345",
+  "DOCKER_HOST": "tcp://localhost:2375"
+}

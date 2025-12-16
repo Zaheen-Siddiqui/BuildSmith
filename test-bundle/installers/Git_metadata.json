@@ -1,0 +1,7 @@
+{
+  "name": "Git",
+  "version": "2.43.0",
+  "source": "git",
+  "platform": "windows",
+  "silent": true
+}

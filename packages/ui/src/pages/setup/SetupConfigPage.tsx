@@ -71,22 +71,39 @@ export default function SetupConfigPage() {
   }
 
   const handleContinue = () => {
+    console.log('[SetupConfigPage] 🚀 Continue clicked')
+    console.log('[SetupConfigPage] ✅ Selected categories:', localSelections)
     setSetupSelections(localSelections)
+    
+    console.log('[SetupConfigPage] 📊 Available items:')
+    console.log('  - VS Code extensions:', vscodeExtensions.length)
+    console.log('  - Docker images:', dockerImages.length)
+    console.log('  - Databases:', databases.length)
+    console.log('  - DevTools:', devtools.length)
+    console.log('  - Environment vars:', environmentVars.length)
+    console.log('  - Packages:', packages.length)
     
     // Navigate to selectors in order: vscode -> docker -> databases -> devtools -> environment -> packages -> preview
     if (localSelections.vscode && vscodeExtensions.length > 0) {
+      console.log('[SetupConfigPage] 🧭 Navigating to VS Code setup')
       navigate('/setup-vscode')
     } else if (localSelections.docker && dockerImages.length > 0) {
+      console.log('[SetupConfigPage] 🧭 Navigating to Docker setup')
       navigate('/setup-docker')
     } else if (localSelections.databases && databases.length > 0) {
+      console.log('[SetupConfigPage] 🧭 Navigating to Database setup')
       navigate('/setup-databases')
     } else if (localSelections.devtools && devtools.length > 0) {
+      console.log('[SetupConfigPage] 🧭 Navigating to DevTools setup')
       navigate('/setup-devtools')
     } else if (localSelections.environment && environmentVars.length > 0) {
+      console.log('[SetupConfigPage] 🧭 Navigating to Environment setup')
       navigate('/setup-environment')
     } else if (localSelections.packages && packages.length > 0) {
+      console.log('[SetupConfigPage] 🧭 Navigating to Packages setup')
       navigate('/setup-packages')
     } else {
+      console.log('[SetupConfigPage] 🧭 Navigating to Preview (no categories selected or no items)')
       navigate('/setup-preview')
     }
   }
