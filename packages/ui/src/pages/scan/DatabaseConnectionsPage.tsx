@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, AlertCircle, Key } from 'lucide-react'
-import { useBundleStore, ManifestItem } from '../../store/bundleStore'
+import { useBundleStore, ManifestItem, DatabaseConnection } from '../../store/bundleStore'
 import { ipc } from '../../services'
 import { DatabaseScanResult } from '../../types/ipc'
 import AtlasPasswordModal from '../../components/AtlasPasswordModal'
@@ -28,10 +28,18 @@ export default function DatabaseConnectionsPage() {
     selectedVSCodeProfiles,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.database && selectedDatabases.length > 0) {
+      setScanComplete(true)
+      return
+    }
+    
     if (!scanInitiatedRef.current && !scanComplete && selectedDatabases.length === 0) {
       scanInitiatedRef.current = true
       const performScan = async () => {
@@ -58,6 +66,7 @@ export default function DatabaseConnectionsPage() {
             }))
             
             setSelectedDatabases(connections)
+            setScanCompleted({ database: true })
             setIsScanning(false)
             setScanComplete(true)
           }
@@ -76,7 +85,8 @@ export default function DatabaseConnectionsPage() {
     return () => {
       ipc.removeEventListener()
     }
-  }, [scanComplete, selectedDatabases.length, setSelectedDatabases])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanCompleted.database, selectedDatabases.length])
 
   const handleSaveAndContinue = () => {
     // Mark database config as complete

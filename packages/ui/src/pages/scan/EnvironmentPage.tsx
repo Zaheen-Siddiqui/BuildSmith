@@ -104,7 +104,7 @@ export default function EnvironmentPage() {
       ipc.removeEventListener()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
+  }, [scanCompleted.environment, selectedEnvironmentVars.length, selectedPathEntries.length]) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
 
   const handleSelectAllVars = () => {
     setSelectedEnvironmentVars(selectedEnvironmentVars.map(v => ({ ...v, selected: true })))

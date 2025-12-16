@@ -139,6 +139,17 @@ export interface BundleState {
   }
   setScanProgress: (progress: Partial<BundleState['scanProgress']>) => void
   
+  // Scan completion tracking - tracks if scan has been run and results are cached
+  scanCompleted: {
+    docker: boolean
+    vscode: boolean
+    database: boolean
+    devtools: boolean
+    environment: boolean
+    packages: boolean
+  }
+  setScanCompleted: (completed: Partial<BundleState['scanCompleted']>) => void
+  
   // Bundle metadata
   currentBundle: BundleMetadata | null
   setCurrentBundle: (bundle: BundleMetadata | null) => void
@@ -284,6 +295,20 @@ export const useBundleStore = create<BundleState>()(
         set((state) => ({
           scanProgress: { ...state.scanProgress, ...progress },
         })),
+      
+      // Scan completion tracking
+      scanCompleted: {
+        docker: false,
+        vscode: false,
+        database: false,
+        devtools: false,
+        environment: false,
+        packages: false,
+      },
+      setScanCompleted: (completed) =>
+        set((state) => ({
+          scanCompleted: { ...state.scanCompleted, ...completed },
+        })),
 
       // Bundle metadata
       currentBundle: null,
@@ -371,6 +396,14 @@ export const useBundleStore = create<BundleState>()(
             environment: false,
             packages: false,
           },
+          scanCompleted: {
+            docker: false,
+            vscode: false,
+            database: false,
+            devtools: false,
+            environment: false,
+            packages: false,
+          },
         }),
       resetBundle: () =>
         set({
@@ -382,6 +415,18 @@ export const useBundleStore = create<BundleState>()(
     {
       name: 'buildsmith-bundle-storage',
       partialize: (state) => ({
+        scanSettings: state.scanSettings,
+        selectedDockerImages: state.selectedDockerImages,
+        selectedVSCodeProfiles: state.selectedVSCodeProfiles,
+        selectedDatabases: state.selectedDatabases,
+        selectedDevTools: state.selectedDevTools,
+        selectedEnvironmentVars: state.selectedEnvironmentVars,
+        selectedPathEntries: state.selectedPathEntries,
+        selectedPackages: state.selectedPackages,
+        scanProgress: state.scanProgress,
+        scanCompleted: state.scanCompleted,
+        currentBundle: state.currentBundle,
+        manifestItems: state.manifestItems,
         exportPath: state.exportPath,
         setupSelections: state.setupSelections,
       }),

@@ -22,10 +22,18 @@ export default function VSCodeProfilesPage() {
     selectedDatabases,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.vscode && selectedVSCodeProfiles.length > 0) {
+      setScanComplete(true)
+      return
+    }
+    
     if (!scanInitiatedRef.current && !scanComplete && selectedVSCodeProfiles.length === 0) {
       scanInitiatedRef.current = true
       const performScan = async () => {
@@ -46,6 +54,7 @@ export default function VSCodeProfilesPage() {
             }))
             
             setSelectedVSCodeProfiles(profiles)
+            setScanCompleted({ vscode: true })
             setIsScanning(false)
             setScanComplete(true)
           }
@@ -64,7 +73,8 @@ export default function VSCodeProfilesPage() {
     return () => {
       ipc.removeEventListener()
     }
-  }, [scanComplete, selectedVSCodeProfiles.length, setSelectedVSCodeProfiles])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanCompleted.vscode, selectedVSCodeProfiles.length])
 
 
   const handleSaveAndContinue = () => {

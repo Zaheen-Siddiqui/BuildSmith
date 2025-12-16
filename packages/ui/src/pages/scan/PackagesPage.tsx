@@ -38,10 +38,18 @@ export default function PackagesPage() {
     selectedPathEntries,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.packages && selectedPackages.length > 0) {
+      setScanComplete(true)
+      return
+    }
+    
     if (!scanInitiatedRef.current && !scanComplete && selectedPackages.length === 0) {
       scanInitiatedRef.current = true
       const performScan = async () => {
@@ -73,6 +81,7 @@ export default function PackagesPage() {
             }))
             
             setSelectedPackages(packages)
+            setScanCompleted({ packages: true })
             setIsScanning(false)
             setScanComplete(true)
           }
@@ -92,7 +101,7 @@ export default function PackagesPage() {
       ipc.removeEventListener()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
+  }, [scanCompleted.packages, selectedPackages.length]) // Re-run if scan completion status changes
 
   const handleSelectAllForManager = (manager: typeof activeManager) => {
     setSelectedPackages(selectedPackages.map(pkg => 
