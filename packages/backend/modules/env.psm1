@@ -37,8 +37,8 @@ function Get-EnvironmentVariables {
                 }
             }
             
-            # Skip sensitive variables
-            if (-not $isSensitive) {
+            # Skip sensitive variables and PATH (handled separately by Get-SystemPath)
+            if (-not $isSensitive -and $key -ne "Path") {
                 $variables += [PSCustomObject]@{
                     id = "system-$key"
                     name = $key
@@ -60,7 +60,7 @@ function Get-EnvironmentVariables {
                 }
             }
             
-            # Skip sensitive variables and PATH (handled separately)
+            # Skip sensitive variables and PATH (handled separately by Get-SystemPath)
             if (-not $isSensitive -and $key -ne "Path") {
                 $variables += [PSCustomObject]@{
                     id = "user-$key"

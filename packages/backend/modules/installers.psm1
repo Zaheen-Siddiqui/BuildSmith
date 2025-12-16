@@ -352,16 +352,15 @@ function Get-InstalledPackages {
         $packages = @()
         $packageIndex = 0
         
-        Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages..."
-        
         # Scan npm global packages
         try {
             $npmPath = Get-Command npm -ErrorAction SilentlyContinue
             if ($npmPath) {
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning npm global packages..."
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages using npm"
                 $npmOutput = npm list -g --depth=0 --json 2>$null | ConvertFrom-Json
                 
                 if ($npmOutput.dependencies) {
+                    $npmCount = 0
                     foreach ($pkg in $npmOutput.dependencies.PSObject.Properties) {
                         $packages += [PSCustomObject]@{
                             id = "package-$packageIndex"
@@ -371,8 +370,9 @@ function Get-InstalledPackages {
                             type = "package"
                         }
                         $packageIndex++
+                        $npmCount++
                     }
-                    Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $($npmOutput.dependencies.PSObject.Properties.Count) npm packages"
+                    Emit-Log -StepId "scan-packages" -Level "success" -Text "Found $npmCount packages"
                 }
             }
         }
@@ -384,9 +384,10 @@ function Get-InstalledPackages {
         try {
             $pipPath = Get-Command pip -ErrorAction SilentlyContinue
             if ($pipPath) {
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning pip packages..."
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages using pip"
                 $pipOutput = pip list --format=json 2>$null | ConvertFrom-Json
                 
+                $pipCount = 0
                 foreach ($pkg in $pipOutput) {
                     $packages += [PSCustomObject]@{
                         id = "package-$packageIndex"
@@ -396,8 +397,9 @@ function Get-InstalledPackages {
                         type = "package"
                     }
                     $packageIndex++
+                    $pipCount++
                 }
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $($pipOutput.Count) pip packages"
+                Emit-Log -StepId "scan-packages" -Level "success" -Text "Found $pipCount packages"
             }
         }
         catch {
@@ -408,7 +410,7 @@ function Get-InstalledPackages {
         try {
             $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
             if ($wingetPath) {
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning winget packages (this may take a moment)..."
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages using winget"
                 # winget list outputs text, need to parse it
                 $wingetOutput = winget list --source winget 2>$null
                 
@@ -452,7 +454,8 @@ function Get-InstalledPackages {
                         }
                     }
                 }
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'winget' }).Count) developer-related winget packages"
+                $wingetCount = ($packages | Where-Object { $_.manager -eq 'winget' }).Count
+                Emit-Log -StepId "scan-packages" -Level "success" -Text "Found $wingetCount packages"
             }
         }
         catch {
@@ -463,10 +466,11 @@ function Get-InstalledPackages {
         try {
             $chocoPath = Get-Command choco -ErrorAction SilentlyContinue
             if ($chocoPath) {
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning chocolatey packages..."
+                Emit-Log -StepId "scan-packages" -Level "info" -Text "Scanning installed packages using chocolatey"
                 $chocoOutput = choco list --local-only --limit-output 2>$null
                 
                 # Parse choco output (format: name|version)
+                $chocoCount = 0
                 foreach ($line in $chocoOutput) {
                     if ($line -match '^(.+?)\|(.+)$') {
                         $packages += [PSCustomObject]@{
@@ -477,9 +481,10 @@ function Get-InstalledPackages {
                             type = "package"
                         }
                         $packageIndex++
+                        $chocoCount++
                     }
                 }
-                Emit-Log -StepId "scan-packages" -Level "info" -Text "Found $(($packages | Where-Object { $_.manager -eq 'chocolatey' }).Count) chocolatey packages"
+                Emit-Log -StepId "scan-packages" -Level "success" -Text "Found $chocoCount packages"
             }
         }
         catch {

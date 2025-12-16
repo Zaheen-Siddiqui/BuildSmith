@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Loader2, Key, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertCircle, Key } from 'lucide-react'
 import { useBundleStore, ManifestItem, DatabaseConnection } from '../../store/bundleStore'
 import { ipc } from '../../services'
-import { DatabaseScanResult } from '../../types/ipc'
+import { DatabaseScanResult, IPCEvent } from '../../types/ipc'
 import AtlasPasswordModal from '../../components/AtlasPasswordModal'
 
 export default function DatabaseConnectionsPage() {
   const navigate = useNavigate()
   const [isScanning, setIsScanning] = useState(false)
   const [scanComplete, setScanComplete] = useState(false)
+  const scanInitiatedRef = useRef(false)
   const [atlasPasswordModal, setAtlasPasswordModal] = useState<{
     isOpen: boolean
     connection: DatabaseConnection | null
@@ -27,16 +28,25 @@ export default function DatabaseConnectionsPage() {
     selectedVSCodeProfiles,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedDatabases.length === 0) {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.database && selectedDatabases.length > 0) {
+      setScanComplete(true)
+      return
+    }
+    
+    if (!scanInitiatedRef.current && !scanComplete && selectedDatabases.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: IPCEvent) => {
           if (event.type === 'result' && event.stepId === 'scan-database' && event.state === 'success') {
             const data = event.data as DatabaseScanResult
             
@@ -56,10 +66,13 @@ export default function DatabaseConnectionsPage() {
             }))
             
             setSelectedDatabases(connections)
+            setScanCompleted({ database: true })
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanDatabase()
@@ -67,7 +80,13 @@ export default function DatabaseConnectionsPage() {
 
       performScan()
     }
-  }, [scanComplete, selectedDatabases.length, setSelectedDatabases])
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanCompleted.database, selectedDatabases.length])
 
   const handleSaveAndContinue = () => {
     // Mark database config as complete
@@ -136,8 +155,15 @@ export default function DatabaseConnectionsPage() {
   }
 
   // Calculate progress
-  const totalSteps = [scanSettings.vscode, scanSettings.docker, scanSettings.databases].filter(Boolean).length
-  const currentStep = totalSteps // Database is always last
+  const totalSteps = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment,
+    scanSettings.packages
+  ].filter(Boolean).length
+  const currentStep = [scanSettings.vscode, scanSettings.docker].filter(Boolean).length + 1
 
   const selectedCount = selectedDatabases.filter(db => db.selected).length
 

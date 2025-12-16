@@ -30,6 +30,13 @@ export class MockIPCService {
   }
 
   /**
+   * Remove event listener
+   */
+  removeEventListener() {
+    this.eventCallback = null
+  }
+
+  /**
    * Reset all state (for testing/debugging)
    */
   reset(): void {

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Terminal, Package } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
-import { DevToolsScanResult } from '../../types/ipc'
+import { DevToolsScanResult, IPCEvent } from '../../types/ipc'
 import ScanTerminal from '../../components/ScanTerminal'
 
 interface LogEntry {
@@ -20,6 +20,7 @@ export default function DevToolsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [showTerminal, setShowTerminal] = useState(false)
   const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
+  const scanInitiatedRef = useRef(false)
 
   const { 
     selectedDevTools, 
@@ -35,17 +36,26 @@ export default function DevToolsPage() {
     selectedPackages,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedDevTools.length === 0) {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.devtools && selectedDevTools.length > 0) {
+      setScanComplete(true)
+      return
+    }
+    
+    if (!scanInitiatedRef.current && !scanComplete && selectedDevTools.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: IPCEvent) => {
           // Capture logs
           if (event.type === 'log') {
             setLogs(prev => [...prev, {
@@ -70,10 +80,13 @@ export default function DevToolsPage() {
             }))
             
             setSelectedDevTools(tools)
+            setScanCompleted({ devtools: true })
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanDevTools()
@@ -81,8 +94,13 @@ export default function DevToolsPage() {
 
       performScan()
     }
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
+  }, [scanCompleted.devtools, selectedDevTools.length]) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
 
   const handleSelectAll = () => {
     setSelectedDevTools(selectedDevTools.map(tool => ({ ...tool, selected: true })))

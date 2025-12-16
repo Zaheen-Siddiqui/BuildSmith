@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Code, CheckCircle, Package, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Code, Package, CheckCircle } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
-import { VSCodeScanResult } from '../../types/ipc'
+import { VSCodeScanResult, IPCEvent } from '../../types/ipc'
 
 export default function VSCodeProfilesPage() {
   const navigate = useNavigate()
   const [isScanning, setIsScanning] = useState(false)
   const [scanComplete, setScanComplete] = useState(false)
+  const scanInitiatedRef = useRef(false)
 
   // Get from store
   const { 
@@ -21,16 +22,25 @@ export default function VSCodeProfilesPage() {
     selectedDatabases,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedVSCodeProfiles.length === 0) {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.vscode && selectedVSCodeProfiles.length > 0) {
+      setScanComplete(true)
+      return
+    }
+    
+    if (!scanInitiatedRef.current && !scanComplete && selectedVSCodeProfiles.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: IPCEvent) => {
           if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
             const data = event.data as VSCodeScanResult
             
@@ -44,10 +54,13 @@ export default function VSCodeProfilesPage() {
             }))
             
             setSelectedVSCodeProfiles(profiles)
+            setScanCompleted({ vscode: true })
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanVSCode()
@@ -55,7 +68,13 @@ export default function VSCodeProfilesPage() {
 
       performScan()
     }
-  }, [scanComplete, selectedVSCodeProfiles.length, setSelectedVSCodeProfiles])
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanCompleted.vscode, selectedVSCodeProfiles.length])
 
 
   const handleSaveAndContinue = () => {
@@ -154,7 +173,14 @@ export default function VSCodeProfilesPage() {
   }
 
   // Calculate progress
-  const totalSteps = [scanSettings.vscode, scanSettings.docker, scanSettings.databases].filter(Boolean).length
+  const totalSteps = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment,
+    scanSettings.packages
+  ].filter(Boolean).length
   const currentStep = 1 // VS Code is always first
 
   const selectedCount = selectedVSCodeProfiles.filter(p => p.selected).length

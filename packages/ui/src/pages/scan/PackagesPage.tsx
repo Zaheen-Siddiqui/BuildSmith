@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Package, Search, Terminal } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
-import { PackagesScanResult } from '../../types/ipc'
+import { PackagesScanResult, IPCEvent } from '../../types/ipc'
 import ScanTerminal from '../../components/ScanTerminal'
 
 interface LogEntry {
@@ -22,6 +22,7 @@ export default function PackagesPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [showTerminal, setShowTerminal] = useState(false)
   const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
+  const scanInitiatedRef = useRef(false)
 
   const { 
     selectedPackages, 
@@ -37,17 +38,26 @@ export default function PackagesPage() {
     selectedPathEntries,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedPackages.length === 0) {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.packages && selectedPackages.length > 0) {
+      setScanComplete(true)
+      return
+    }
+    
+    if (!scanInitiatedRef.current && !scanComplete && selectedPackages.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: IPCEvent) => {
           // Capture logs
           if (event.type === 'log') {
             setLogs(prev => [...prev, {
@@ -71,10 +81,13 @@ export default function PackagesPage() {
             }))
             
             setSelectedPackages(packages)
+            setScanCompleted({ packages: true })
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanPackages()
@@ -82,8 +95,13 @@ export default function PackagesPage() {
 
       performScan()
     }
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
+  }, [scanCompleted.packages, selectedPackages.length]) // Re-run if scan completion status changes
 
   const handleSelectAllForManager = (manager: typeof activeManager) => {
     setSelectedPackages(selectedPackages.map(pkg => 
@@ -219,6 +237,24 @@ export default function PackagesPage() {
 
   const selectedCount = filteredPackages.filter(p => p.selected).length
 
+  // Calculate progress
+  const totalSteps = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment,
+    scanSettings.packages
+  ].filter(Boolean).length
+  
+  const currentStep = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment
+  ].filter(Boolean).length + 1
+
   const getManagerColor = (manager: string) => {
     switch (manager) {
       case 'npm': return 'bg-red-600/30 text-red-300'
@@ -230,8 +266,24 @@ export default function PackagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white p-8">
+    <div className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
+        {/* Progress Bar */}
+        {totalSteps > 1 && (
+          <div className="card p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Configuration Progress</span>
+              <span className="text-sm text-primary-300">Step {currentStep} of {totalSteps}</span>
+            </div>
+            <div className="w-full bg-primary-800 rounded-full h-2">
+              <div 
+                className="bg-accent-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
@@ -250,10 +302,10 @@ export default function PackagesPage() {
 
         {/* Scanning State */}
         {isScanning && (
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-12 text-center">
-            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-400" />
-            <p className="text-xl">Scanning packages...</p>
-            <p className="text-gray-400 mt-2">Checking npm, pip, winget, and chocolatey</p>
+          <div className="card p-8 text-center">
+            <Loader2 className="w-16 h-16 text-accent-500 mx-auto mb-4 animate-spin" />
+            <h2 className="text-2xl font-bold mb-2">Scanning Packages</h2>
+            <p className="text-primary-300">Checking npm, pip, winget, and chocolatey...</p>
           </div>
         )}
 
@@ -261,14 +313,14 @@ export default function PackagesPage() {
         {!isScanning && scanComplete && (
           <div className="space-y-6">
             {/* Manager Filter Tabs */}
-            <div className="flex gap-2 bg-white/5 backdrop-blur-sm rounded-xl p-2 overflow-x-auto">
+            <div className="card p-2 flex gap-2 overflow-x-auto">
               <button
                 onClick={() => setActiveManager('all')}
                 className={`
                   px-6 py-3 rounded-lg transition font-semibold whitespace-nowrap
                   ${activeManager === 'all' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-accent-600 text-white' 
+                    : 'text-primary-300 hover:text-white hover:bg-primary-700'
                   }
                 `}
               >
@@ -282,8 +334,8 @@ export default function PackagesPage() {
                     className={`
                       px-6 py-3 rounded-lg transition font-semibold whitespace-nowrap
                       ${activeManager === manager 
-                        ? 'bg-blue-600 text-white' 
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                        ? 'bg-accent-600 text-white' 
+                        : 'text-primary-300 hover:text-white hover:bg-primary-700'
                       }
                     `}
                   >
@@ -294,22 +346,22 @@ export default function PackagesPage() {
             </div>
 
             {/* Search and Actions */}
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6">
+            <div className="card p-6">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-primary-400" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search packages..."
-                    className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500"
+                    className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-accent-500"
                   />
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowTerminal(true)}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
+                    className="btn-secondary flex items-center gap-2"
                     title="View scan logs"
                   >
                     <Terminal className="w-4 h-4" />
@@ -317,28 +369,28 @@ export default function PackagesPage() {
                   </button>
                   <button
                     onClick={() => handleSelectAllForManager(activeManager)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+                    className="btn-accent"
                   >
                     Select All
                   </button>
                   <button
                     onClick={() => handleDeselectAllForManager(activeManager)}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition"
+                    className="btn-secondary"
                   >
                     Deselect All
                   </button>
                 </div>
               </div>
-              <p className="text-gray-400 mt-4">
+              <p className="text-primary-400 mt-4">
                 {selectedCount} of {filteredPackages.length} packages selected
               </p>
             </div>
 
             {/* Packages List */}
             {filteredPackages.length === 0 ? (
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-12 text-center">
-                <Package className="w-16 h-16 mx-auto mb-4 text-gray-500" />
-                <p className="text-xl text-gray-400">
+              <div className="card p-12 text-center">
+                <Package className="w-16 h-16 mx-auto mb-4 text-primary-500" />
+                <p className="text-xl text-primary-400">
                   {searchQuery 
                     ? 'No packages match your search' 
                     : activeManager === 'all' 
@@ -346,7 +398,7 @@ export default function PackagesPage() {
                       : `No ${activeManager} packages found`
                   }
                 </p>
-                <p className="text-gray-500 mt-2">
+                <p className="text-primary-500 mt-2">
                   Install packages using npm, pip, winget, or chocolatey
                 </p>
               </div>
@@ -357,11 +409,11 @@ export default function PackagesPage() {
                     key={pkg.id || `package-${pkg.manager}-${index}`}
                     onClick={() => togglePackage(pkg.id)}
                     className={`
-                      bg-white/5 backdrop-blur-sm rounded-xl p-6 cursor-pointer
+                      card p-6 cursor-pointer
                       transition-all duration-200 border-2
                       ${pkg.selected 
-                        ? 'border-blue-500 bg-blue-500/10' 
-                        : 'border-transparent hover:border-white/20'
+                        ? 'border-accent-600 bg-accent-600/10' 
+                        : 'border-transparent hover:border-primary-600'
                       }
                     `}
                   >
@@ -370,13 +422,13 @@ export default function PackagesPage() {
                         type="checkbox"
                         checked={pkg.selected}
                         onChange={() => {}}
-                        className="mt-1 w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                        className="mt-1 w-5 h-5 accent-accent-600"
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <Package className="w-5 h-5 text-blue-400" />
+                          <Package className="w-5 h-5 text-accent-400" />
                           <h3 className="text-lg font-semibold">{pkg.name}</h3>
-                          <span className="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-full text-sm">
+                          <span className="px-3 py-1 bg-accent-600/30 text-accent-300 rounded-full text-sm">
                             v{pkg.version}
                           </span>
                           <span className={`px-3 py-1 rounded-full text-sm ${getManagerColor(pkg.manager)}`}>
@@ -390,19 +442,19 @@ export default function PackagesPage() {
               </div>
             )}
 
-            {/* Continue Button */}
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => navigate('/scan')}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition"
-              >
-                Back
-              </button>
+            {/* Action Buttons */}
+            <div className="flex gap-4">
               <button
                 onClick={handleSaveAndContinue}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition font-semibold"
+                className="btn-accent flex-1"
               >
-                Continue →
+                Save & Continue
+              </button>
+              <button
+                onClick={() => navigate('/scan')}
+                className="btn-secondary"
+              >
+                Back
               </button>
             </div>
           </div>

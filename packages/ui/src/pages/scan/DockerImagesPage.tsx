@@ -1,16 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useBundleStore, DockerImage, ManifestItem } from '../../store/bundleStore'
 import DockerImageSelector, { DockerImageData } from '../../components/DockerImageSelector'
 import { ipc } from '../../services'
-import { DockerScanResult } from '../../types/ipc'
+import { DockerScanResult, IPCEvent } from '../../types/ipc'
 
 export default function DockerImagesPage() {
   const navigate = useNavigate()
   const [images, setImages] = useState<DockerImageData[]>([])
   const [isScanning, setIsScanning] = useState(false)
   const [scanComplete, setScanComplete] = useState(false)
+  const scanInitiatedRef = useRef(false)
 
   // Get from store
   const { 
@@ -22,6 +23,8 @@ export default function DockerImagesPage() {
     selectedDatabases,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Initialize local images from store on mount
@@ -34,12 +37,20 @@ export default function DockerImagesPage() {
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedDockerImages.length === 0) {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.docker && selectedDockerImages.length > 0) {
+      setImages(selectedDockerImages)
+      setScanComplete(true)
+      return
+    }
+    
+    if (!scanInitiatedRef.current && !scanComplete && selectedDockerImages.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: IPCEvent) => {
           if (event.type === 'result' && event.stepId === 'scan-docker' && event.state === 'success') {
             const data = event.data as DockerScanResult
             
@@ -55,10 +66,13 @@ export default function DockerImagesPage() {
             // Update both local state (for UI) and store (for persistence)
             setImages(scannedImages)
             setSelectedDockerImages(scannedImages)
+            setScanCompleted({ docker: true })
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanDocker()
@@ -66,7 +80,13 @@ export default function DockerImagesPage() {
 
       performScan()
     }
-  }, [scanComplete, selectedDockerImages.length, setSelectedDockerImages])
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanCompleted.docker, selectedDockerImages.length])
 
   const handleToggleImage = (id: string) => {
     setImages(prev =>
@@ -194,7 +214,14 @@ export default function DockerImagesPage() {
   }
 
   // Calculate progress
-  const totalSteps = [scanSettings.vscode, scanSettings.docker, scanSettings.databases].filter(Boolean).length
+  const totalSteps = [
+    scanSettings.vscode,
+    scanSettings.docker,
+    scanSettings.databases,
+    scanSettings.devtools,
+    scanSettings.environment,
+    scanSettings.packages
+  ].filter(Boolean).length
   const currentStep = [scanSettings.vscode].filter(Boolean).length + 1
 
   return (

@@ -139,6 +139,17 @@ export interface BundleState {
   }
   setScanProgress: (progress: Partial<BundleState['scanProgress']>) => void
   
+  // Scan completion tracking - tracks if scan has been run and results are cached
+  scanCompleted: {
+    docker: boolean
+    vscode: boolean
+    database: boolean
+    devtools: boolean
+    environment: boolean
+    packages: boolean
+  }
+  setScanCompleted: (completed: Partial<BundleState['scanCompleted']>) => void
+  
   // Bundle metadata
   currentBundle: BundleMetadata | null
   setCurrentBundle: (bundle: BundleMetadata | null) => void
@@ -168,6 +179,17 @@ export interface BundleState {
     packages: boolean
   }
   setSetupSelections: (selections: Partial<BundleState['setupSelections']>) => void
+  
+  // Setup completion tracking - tracks if setup steps have been completed and data is cached
+  setupCompleted: {
+    vscode: boolean
+    docker: boolean
+    databases: boolean
+    devtools: boolean
+    environment: boolean
+    packages: boolean
+  }
+  setSetupCompleted: (completed: Partial<BundleState['setupCompleted']>) => void
   
   // Selected docker images for setup (subset of manifest items)
   selectedSetupDockerImages: string[] // Array of image IDs that user selected
@@ -284,6 +306,20 @@ export const useBundleStore = create<BundleState>()(
         set((state) => ({
           scanProgress: { ...state.scanProgress, ...progress },
         })),
+      
+      // Scan completion tracking
+      scanCompleted: {
+        docker: false,
+        vscode: false,
+        database: false,
+        devtools: false,
+        environment: false,
+        packages: false,
+      },
+      setScanCompleted: (completed) =>
+        set((state) => ({
+          scanCompleted: { ...state.scanCompleted, ...completed },
+        })),
 
       // Bundle metadata
       currentBundle: null,
@@ -328,6 +364,20 @@ export const useBundleStore = create<BundleState>()(
         set((state) => ({
           setupSelections: { ...state.setupSelections, ...selections },
         })),
+      
+      // Setup completion tracking
+      setupCompleted: {
+        vscode: false,
+        docker: false,
+        databases: false,
+        devtools: false,
+        environment: false,
+        packages: false,
+      },
+      setSetupCompleted: (completed) =>
+        set((state) => ({
+          setupCompleted: { ...state.setupCompleted, ...completed },
+        })),
 
       // Selected docker images for setup
       selectedSetupDockerImages: [],
@@ -371,6 +421,14 @@ export const useBundleStore = create<BundleState>()(
             environment: false,
             packages: false,
           },
+          scanCompleted: {
+            docker: false,
+            vscode: false,
+            database: false,
+            devtools: false,
+            environment: false,
+            packages: false,
+          },
         }),
       resetBundle: () =>
         set({
@@ -382,8 +440,25 @@ export const useBundleStore = create<BundleState>()(
     {
       name: 'buildsmith-bundle-storage',
       partialize: (state) => ({
+        scanSettings: state.scanSettings,
+        selectedDockerImages: state.selectedDockerImages,
+        selectedVSCodeProfiles: state.selectedVSCodeProfiles,
+        selectedDatabases: state.selectedDatabases,
+        selectedDevTools: state.selectedDevTools,
+        selectedEnvironmentVars: state.selectedEnvironmentVars,
+        selectedPathEntries: state.selectedPathEntries,
+        selectedPackages: state.selectedPackages,
+        scanProgress: state.scanProgress,
+        scanCompleted: state.scanCompleted,
+        currentBundle: state.currentBundle,
+        manifestItems: state.manifestItems,
         exportPath: state.exportPath,
         setupSelections: state.setupSelections,
+        setupCompleted: state.setupCompleted,
+        selectedSetupDockerImages: state.selectedSetupDockerImages,
+        selectedSetupVSCodeProfiles: state.selectedSetupVSCodeProfiles,
+        selectedSetupDatabases: state.selectedSetupDatabases,
+        importedBundle: state.importedBundle,
       }),
     }
   )
