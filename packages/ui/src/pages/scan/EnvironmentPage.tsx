@@ -60,7 +60,7 @@ export default function EnvironmentPage() {
         setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
-        const handleEvent = (event: any) => {
+        const handleEvent = (event: { type: string; stepId: string; state?: string; level?: string; text?: string; timestamp?: string; data?: EnvironmentScanResult }) => {
           // Capture logs
           if (event.type === 'log') {
             setLogs(prev => [...prev, {
@@ -114,22 +114,6 @@ export default function EnvironmentPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanCompleted.environment, selectedEnvironmentVars.length, selectedPathEntries.length]) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
-
-  const handleSelectAllVars = () => {
-    setSelectedEnvironmentVars(selectedEnvironmentVars.map(v => ({ ...v, selected: true })))
-  }
-
-  const handleDeselectAllVars = () => {
-    setSelectedEnvironmentVars(selectedEnvironmentVars.map(v => ({ ...v, selected: false })))
-  }
-
-  const handleSelectAllPaths = () => {
-    setSelectedPathEntries(selectedPathEntries.map(p => ({ ...p, selected: true })))
-  }
-
-  const handleDeselectAllPaths = () => {
-    setSelectedPathEntries(selectedPathEntries.map(p => ({ ...p, selected: false })))
-  }
 
   // Developer tool keywords for filtering
   const isDeveloperVariable = (name: string, value: string) => {

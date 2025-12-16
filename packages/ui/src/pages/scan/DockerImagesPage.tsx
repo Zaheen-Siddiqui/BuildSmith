@@ -50,7 +50,7 @@ export default function DockerImagesPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        const handleEvent = (event: any) => {
+        const handleEvent = (event: { type: string; stepId: string; state: string; data?: DockerScanResult }) => {
           if (event.type === 'result' && event.stepId === 'scan-docker' && event.state === 'success') {
             const data = event.data as DockerScanResult
             

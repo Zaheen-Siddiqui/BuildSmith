@@ -46,7 +46,7 @@ export default function DatabaseConnectionsPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        const handleEvent = (event: any) => {
+        const handleEvent = (event: { type: string; stepId: string; state: string; data?: DatabaseScanResult }) => {
           if (event.type === 'result' && event.stepId === 'scan-database' && event.state === 'success') {
             const data = event.data as DatabaseScanResult
             

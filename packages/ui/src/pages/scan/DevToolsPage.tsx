@@ -55,7 +55,7 @@ export default function DevToolsPage() {
         setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
-        const handleEvent = (event: any) => {
+        const handleEvent = (event: { type: string; stepId: string; state?: string; level?: string; text?: string; timestamp?: string; data?: DevToolsScanResult }) => {
           // Capture logs
           if (event.type === 'log') {
             setLogs(prev => [...prev, {

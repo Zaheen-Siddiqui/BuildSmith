@@ -40,7 +40,7 @@ export default function VSCodeProfilesPage() {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        const handleEvent = (event: any) => {
+        const handleEvent = (event: { type: string; stepId: string; state: string; data?: VSCodeScanResult }) => {
           if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
             const data = event.data as VSCodeScanResult
             
