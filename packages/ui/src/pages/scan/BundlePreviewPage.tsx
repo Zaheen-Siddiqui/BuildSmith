@@ -46,7 +46,7 @@ export default function BundlePreviewPage() {
           name: 'profiles',
           type: 'folder',
           children: selectedProfiles.map(profile => {
-            const safeName = profile.name.replace(/[^\w\-]/g, '_')
+            const safeName = profile.name.replace(/[^\w-]/g, '_')
             return {
               name: `${safeName}-profile.json`,
               type: 'file' as const,

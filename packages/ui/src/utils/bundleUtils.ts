@@ -53,7 +53,7 @@ export async function createBundle(options: BundleExportOptions): Promise<Blob> 
       .filter(profile => profile.selected)
       .forEach(profile => {
         // Sanitize profile name for filename
-        const safeName = profile.name.replace(/[^\w\-]/g, '_')
+        const safeName = profile.name.replace(/[^\w-]/g, '_')
         const profileFileName = `${safeName}-profile.json`
         
         // Create VS Code native export format

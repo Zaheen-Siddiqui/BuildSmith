@@ -93,13 +93,13 @@ export default function ImportPage() {
       
       console.log('[ImportPage] 📦 Manifest items count:', manifestsJson.items.length)
       console.log('[ImportPage] 📊 Manifest breakdown:')
-      console.log('  - VS Code extensions:', manifestsJson.items.filter((i: any) => i.type === 'extension').length)
-      console.log('  - Docker images:', manifestsJson.items.filter((i: any) => i.type === 'image').length)
-      console.log('  - Databases:', manifestsJson.items.filter((i: any) => i.type === 'database').length)
-      console.log('  - DevTools:', manifestsJson.items.filter((i: any) => i.type === 'installer').length)
-      console.log('  - Packages:', manifestsJson.items.filter((i: any) => i.type === 'package').length)
-      console.log('  - Environment vars:', manifestsJson.items.filter((i: any) => i.type === 'env').length)
-      console.log('  - PATH entries:', manifestsJson.items.filter((i: any) => i.type === 'path').length)
+      console.log('  - VS Code extensions:', manifestsJson.items.filter((i: { type: string }) => i.type === 'extension').length)
+      console.log('  - Docker images:', manifestsJson.items.filter((i: { type: string }) => i.type === 'image').length)
+      console.log('  - Databases:', manifestsJson.items.filter((i: { type: string }) => i.type === 'database').length)
+      console.log('  - DevTools:', manifestsJson.items.filter((i: { type: string }) => i.type === 'installer').length)
+      console.log('  - Packages:', manifestsJson.items.filter((i: { type: string }) => i.type === 'package').length)
+      console.log('  - Environment vars:', manifestsJson.items.filter((i: { type: string }) => i.type === 'env').length)
+      console.log('  - PATH entries:', manifestsJson.items.filter((i: { type: string }) => i.type === 'path').length)
       
       // Parse VS Code profile files from profiles/ folder
       const profileFiles = Object.keys(zip.files).filter(path => {
@@ -122,7 +122,7 @@ export default function ImportPage() {
           console.log(`[ImportPage] 📋 Profile "${profileData.name}":`, profileData.extensions.length, 'extensions')
           
           // Add each extension from this profile to manifest with profile name as source
-          profileData.extensions.forEach((ext: any) => {
+          profileData.extensions.forEach((ext: { identifier?: { id: string }; id?: string; version?: string }) => {
             const extensionId = ext.identifier?.id || ext.id
             
             profileManifestItems.push({
@@ -137,7 +137,7 @@ export default function ImportPage() {
       }
       
       // Combine profile items with other manifest items (non-extension items)
-      const nonExtensionItems = manifestsJson.items.filter((item: any) => item.type !== 'extension')
+      const nonExtensionItems = manifestsJson.items.filter((item: { type: string }) => item.type !== 'extension')
       const allManifestItems = [...profileManifestItems, ...nonExtensionItems]
       
       console.log('[ImportPage] 📦 Total manifest items after profile parsing:', allManifestItems.length)
@@ -161,12 +161,12 @@ export default function ImportPage() {
       setManifestItems(allManifestItems)
       
       // Auto-detect what was in the bundle and set scan settings
-      const hasVSCode = allManifestItems.some((item: any) => item.type === 'extension')
-      const hasDocker = allManifestItems.some((item: any) => item.type === 'image')
-      const hasDatabase = allManifestItems.some((item: any) => item.type === 'database')
-      const hasDevtools = allManifestItems.some((item: any) => item.type === 'installer')
-      const hasPackages = allManifestItems.some((item: any) => item.type === 'package')
-      const hasEnvironment = allManifestItems.some((item: any) => item.type === 'env' || item.type === 'path')
+      const hasVSCode = allManifestItems.some((item: { type: string }) => item.type === 'extension')
+      const hasDocker = allManifestItems.some((item: { type: string }) => item.type === 'image')
+      const hasDatabase = allManifestItems.some((item: { type: string }) => item.type === 'database')
+      const hasDevtools = allManifestItems.some((item: { type: string }) => item.type === 'installer')
+      const hasPackages = allManifestItems.some((item: { type: string }) => item.type === 'package')
+      const hasEnvironment = allManifestItems.some((item: { type: string }) => item.type === 'env' || item.type === 'path')
       
       console.log('[ImportPage] 🔍 Auto-detected categories:')
       console.log('  - VS Code:', hasVSCode)
