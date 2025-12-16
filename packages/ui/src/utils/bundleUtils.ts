@@ -1,10 +1,11 @@
 import JSZip from 'jszip'
-import { ManifestItem, BundleMetadata, ScanSettings } from '../store/bundleStore'
+import { ManifestItem, BundleMetadata, ScanSettings, VSCodeProfile } from '../store/bundleStore'
 
 export interface BundleExportOptions {
   metadata: BundleMetadata
   manifestItems: ManifestItem[]
   scanSettings: ScanSettings
+  selectedVSCodeProfiles?: VSCodeProfile[]  // Add selected profiles
   outputPath?: string
 }
 
@@ -43,24 +44,30 @@ export async function createBundle(options: BundleExportOptions): Promise<Blob> 
   
   zip.file('manifests.json', JSON.stringify(manifest, null, 2))
   
-  // 3. Create VS Code profiles folder
-  if (options.scanSettings.vscode) {
-    const vscodeProfile = {
-      name: 'BuildSmith Profile',
-      extensions: options.manifestItems
-        .filter(item => item.type === 'extension' && item.included)
-        .map(item => ({
-          id: item.name,
-          version: item.version,
-        })),
-      settings: {
-        'editor.fontSize': 14,
-        'editor.tabSize': 2,
-        'workbench.colorTheme': 'Default Dark+',
-      },
-    }
+  // 3. Create VS Code profiles folder with individual profile files
+  if (options.scanSettings.vscode && options.selectedVSCodeProfiles && options.selectedVSCodeProfiles.length > 0) {
+    const profilesFolder = zip.folder('profiles')
     
-    zip.folder('profiles')?.file('vscode_profile.json', JSON.stringify(vscodeProfile, null, 2))
+    // Create individual profile files for each selected profile
+    options.selectedVSCodeProfiles
+      .filter(profile => profile.selected)
+      .forEach(profile => {
+        // Sanitize profile name for filename
+        const safeName = profile.name.replace(/[^\w\-]/g, '_')
+        const profileFileName = `${safeName}-profile.json`
+        
+        // Create VS Code native export format
+        const profileData = {
+          name: profile.name,
+          extensions: profile.extensions.map(extId => ({
+            identifier: { id: extId },
+            version: '1.0.0'  // We don't have actual versions in the store
+          })),
+          settings: profile.settings || {}
+        }
+        
+        profilesFolder?.file(profileFileName, JSON.stringify(profileData, null, 2))
+      })
   }
   
   // 4. Create Docker images folder with placeholder tars

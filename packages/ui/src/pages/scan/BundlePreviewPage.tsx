@@ -21,6 +21,7 @@ export default function BundlePreviewPage() {
     currentBundle, 
     manifestItems, 
     scanSettings,
+    selectedVSCodeProfiles,
     updateManifestItem, 
     setExportPath, 
     resetScan, 
@@ -148,6 +149,7 @@ export default function BundlePreviewPage() {
         metadata: currentBundle,
         manifestItems,
         scanSettings,
+        selectedVSCodeProfiles,  // Pass selected profiles
       })
       
       // Generate filename
