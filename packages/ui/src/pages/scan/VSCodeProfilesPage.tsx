@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Code, CheckCircle, Package, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Code, Package, CheckCircle } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
 import { VSCodeScanResult } from '../../types/ipc'
@@ -9,6 +9,7 @@ export default function VSCodeProfilesPage() {
   const navigate = useNavigate()
   const [isScanning, setIsScanning] = useState(false)
   const [scanComplete, setScanComplete] = useState(false)
+  const scanInitiatedRef = useRef(false)
 
   // Get from store
   const { 
@@ -25,12 +26,13 @@ export default function VSCodeProfilesPage() {
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedVSCodeProfiles.length === 0) {
+    if (!scanInitiatedRef.current && !scanComplete && selectedVSCodeProfiles.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: any) => {
           if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
             const data = event.data as VSCodeScanResult
             
@@ -47,13 +49,20 @@ export default function VSCodeProfilesPage() {
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanVSCode()
       }
 
       performScan()
+    }
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
     }
   }, [scanComplete, selectedVSCodeProfiles.length, setSelectedVSCodeProfiles])
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Terminal, Package } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
@@ -20,6 +20,7 @@ export default function DevToolsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [showTerminal, setShowTerminal] = useState(false)
   const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
+  const scanInitiatedRef = useRef(false)
 
   const { 
     selectedDevTools, 
@@ -39,13 +40,14 @@ export default function DevToolsPage() {
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedDevTools.length === 0) {
+    if (!scanInitiatedRef.current && !scanComplete && selectedDevTools.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: any) => {
           // Capture logs
           if (event.type === 'log') {
             setLogs(prev => [...prev, {
@@ -73,13 +75,20 @@ export default function DevToolsPage() {
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanDevTools()
       }
 
       performScan()
+    }
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop

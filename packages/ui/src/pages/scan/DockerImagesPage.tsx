@@ -34,12 +34,13 @@ export default function DockerImagesPage() {
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedDockerImages.length === 0) {
+    if (!scanInitiatedRef.current && !scanComplete && selectedDockerImages.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: any) => {
           if (event.type === 'result' && event.stepId === 'scan-docker' && event.state === 'success') {
             const data = event.data as DockerScanResult
             
@@ -58,13 +59,20 @@ export default function DockerImagesPage() {
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanDocker()
       }
 
       performScan()
+    }
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
     }
   }, [scanComplete, selectedDockerImages.length, setSelectedDockerImages])
 

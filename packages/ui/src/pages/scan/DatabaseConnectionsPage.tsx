@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Loader2, Key, AlertCircle } from 'lucide-react'
-import { useBundleStore, ManifestItem, DatabaseConnection } from '../../store/bundleStore'
+import { ArrowLeft, Loader2, AlertCircle, Key } from 'lucide-react'
+import { useBundleStore, ManifestItem } from '../../store/bundleStore'
 import { ipc } from '../../services'
 import { DatabaseScanResult } from '../../types/ipc'
 import AtlasPasswordModal from '../../components/AtlasPasswordModal'
@@ -10,6 +10,7 @@ export default function DatabaseConnectionsPage() {
   const navigate = useNavigate()
   const [isScanning, setIsScanning] = useState(false)
   const [scanComplete, setScanComplete] = useState(false)
+  const scanInitiatedRef = useRef(false)
   const [atlasPasswordModal, setAtlasPasswordModal] = useState<{
     isOpen: boolean
     connection: DatabaseConnection | null
@@ -31,12 +32,13 @@ export default function DatabaseConnectionsPage() {
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedDatabases.length === 0) {
+    if (!scanInitiatedRef.current && !scanComplete && selectedDatabases.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: any) => {
           if (event.type === 'result' && event.stepId === 'scan-database' && event.state === 'success') {
             const data = event.data as DatabaseScanResult
             
@@ -59,13 +61,20 @@ export default function DatabaseConnectionsPage() {
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanDatabase()
       }
 
       performScan()
+    }
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
     }
   }, [scanComplete, selectedDatabases.length, setSelectedDatabases])
 

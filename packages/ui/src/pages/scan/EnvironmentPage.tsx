@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Settings, FolderTree, Search, Terminal } from 'lucide-react'
 import { useBundleStore, ManifestItem } from '../../store/bundleStore'
@@ -19,9 +19,11 @@ export default function EnvironmentPage() {
   const [scanComplete, setScanComplete] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'variables' | 'path'>('variables')
+  const [activeCategory, setActiveCategory] = useState<'all' | 'developer' | 'system' | 'user'>('all')
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [showTerminal, setShowTerminal] = useState(false)
   const [isTerminalMaximized, setIsTerminalMaximized] = useState(false)
+  const scanInitiatedRef = useRef(false)
 
   const { 
     selectedEnvironmentVars,
@@ -43,13 +45,14 @@ export default function EnvironmentPage() {
 
   // Trigger scan on mount
   useEffect(() => {
-    if (!scanComplete && selectedEnvironmentVars.length === 0 && selectedPathEntries.length === 0) {
+    if (!scanInitiatedRef.current && !scanComplete && selectedEnvironmentVars.length === 0 && selectedPathEntries.length === 0) {
+      scanInitiatedRef.current = true
       const performScan = async () => {
         setIsScanning(true)
         setShowTerminal(true) // Auto-open terminal during scan
         
         // Subscribe to IPC events
-        ipc.onEvent((event) => {
+        const handleEvent = (event: any) => {
           // Capture logs
           if (event.type === 'log') {
             setLogs(prev => [...prev, {
@@ -85,13 +88,20 @@ export default function EnvironmentPage() {
             setIsScanning(false)
             setScanComplete(true)
           }
-        })
+        }
+        
+        ipc.onEvent(handleEvent)
         
         // Start the scan
         await ipc.scanEnvironment()
       }
 
       performScan()
+    }
+    
+    // Cleanup event listener on unmount
+    return () => {
+      ipc.removeEventListener()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run once on mount - intentionally ignoring dependencies to prevent infinite loop
@@ -110,6 +120,36 @@ export default function EnvironmentPage() {
 
   const handleDeselectAllPaths = () => {
     setSelectedPathEntries(selectedPathEntries.map(p => ({ ...p, selected: false })))
+  }
+
+  // Developer tool keywords for filtering
+  const isDeveloperVariable = (name: string, value: string) => {
+    const lowerName = name.toLowerCase()
+    const lowerValue = value.toLowerCase()
+    const devKeywords = [
+      'path', 'java', 'python', 'node', 'npm', 'git', 'maven', 'gradle',
+      'docker', 'aws', 'azure', 'gcp', 'golang', 'cargo', 'rustup',
+      'android', 'sdk', 'jdk', 'compiler', 'visual studio', 'vs',
+      'cmake', 'mingw', 'gcc', 'clang', 'llvm', 'dotnet', 'nuget',
+      'composer', 'php', 'ruby', 'perl', 'terraform', 'kubectl',
+      'postgres', 'mysql', 'mongodb', 'redis', 'postgresql'
+    ]
+    return devKeywords.some(keyword => 
+      lowerName.includes(keyword) || lowerValue.includes(keyword)
+    )
+  }
+
+  const isDeveloperPath = (path: string) => {
+    const lowerPath = path.toLowerCase()
+    const devKeywords = [
+      'java', 'python', 'node', 'npm', 'git', 'maven', 'gradle',
+      'docker', 'aws', 'azure', 'gcp', 'golang', 'cargo', 'rust',
+      'android', 'sdk', 'jdk', 'compiler', 'visual studio', 'mingw',
+      'cmake', 'gcc', 'clang', 'llvm', 'dotnet', 'nuget',
+      'composer', 'php', 'ruby', 'perl', 'terraform', 'kubectl',
+      'postgres', 'mysql', 'mongodb', 'redis', 'postgresql', 'bin'
+    ]
+    return devKeywords.some(keyword => lowerPath.includes(keyword))
   }
 
   const handleSaveAndContinue = () => {
@@ -218,14 +258,26 @@ export default function EnvironmentPage() {
     })
   }
 
-  const filteredVars = selectedEnvironmentVars.filter(v =>
-    v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.value?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+const filteredVars = selectedEnvironmentVars.filter(v => {
+    const matchesSearch = v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.value?.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    if (activeCategory === 'all') return matchesSearch
+    if (activeCategory === 'developer') return matchesSearch && isDeveloperVariable(v.name, v.value)
+    if (activeCategory === 'system') return matchesSearch && v.scope === 'system'
+    if (activeCategory === 'user') return matchesSearch && v.scope === 'user'
+    return matchesSearch
+  })
 
-  const filteredPaths = selectedPathEntries.filter(p =>
-    p.path?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredPaths = selectedPathEntries.filter(p => {
+    const matchesSearch = p.path?.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    if (activeCategory === 'all') return matchesSearch
+    if (activeCategory === 'developer') return matchesSearch && isDeveloperPath(p.path)
+    if (activeCategory === 'system') return matchesSearch && p.scope === 'system'
+    if (activeCategory === 'user') return matchesSearch && p.scope === 'user'
+    return matchesSearch
+  })
 
   const selectedVarsCount = selectedEnvironmentVars.filter(v => v.selected).length
   const selectedPathsCount = selectedPathEntries.filter(p => p.selected).length
@@ -321,6 +373,59 @@ export default function EnvironmentPage() {
               </div>
             </div>
 
+            {/* Category Filter */}
+            <div className="card p-2 mb-6 flex gap-2 overflow-x-auto">
+              <button
+                onClick={() => setActiveCategory('all')}
+                className={`px-6 py-3 rounded-lg transition font-semibold whitespace-nowrap ${
+                  activeCategory === 'all'
+                    ? 'bg-accent-600 text-white'
+                    : 'text-primary-300 hover:text-white hover:bg-primary-700'
+                }`}
+              >
+                All ({activeTab === 'variables' ? selectedEnvironmentVars.length : selectedPathEntries.length})
+              </button>
+              <button
+                onClick={() => setActiveCategory('developer')}
+                className={`px-6 py-3 rounded-lg transition font-semibold whitespace-nowrap ${
+                  activeCategory === 'developer'
+                    ? 'bg-accent-600 text-white'
+                    : 'text-primary-300 hover:text-white hover:bg-primary-700'
+                }`}
+              >
+                Developer Tools ({activeTab === 'variables' 
+                  ? selectedEnvironmentVars.filter(v => isDeveloperVariable(v.name, v.value)).length
+                  : selectedPathEntries.filter(p => isDeveloperPath(p.path)).length
+                })
+              </button>
+              <button
+                onClick={() => setActiveCategory('system')}
+                className={`px-6 py-3 rounded-lg transition font-semibold whitespace-nowrap ${
+                  activeCategory === 'system'
+                    ? 'bg-accent-600 text-white'
+                    : 'text-primary-300 hover:text-white hover:bg-primary-700'
+                }`}
+              >
+                System ({activeTab === 'variables'
+                  ? selectedEnvironmentVars.filter(v => v.scope === 'system').length
+                  : selectedPathEntries.filter(p => p.scope === 'system').length
+                })
+              </button>
+              <button
+                onClick={() => setActiveCategory('user')}
+                className={`px-6 py-3 rounded-lg transition font-semibold whitespace-nowrap ${
+                  activeCategory === 'user'
+                    ? 'bg-accent-600 text-white'
+                    : 'text-primary-300 hover:text-white hover:bg-primary-700'
+                }`}
+              >
+                User ({activeTab === 'variables'
+                  ? selectedEnvironmentVars.filter(v => v.scope === 'user').length
+                  : selectedPathEntries.filter(p => p.scope === 'user').length
+                })
+              </button>
+            </div>
+
             {/* Search and Actions */}
             <div className="card p-6 mb-6">
               <div className="flex items-center justify-between gap-4">
@@ -337,21 +442,57 @@ export default function EnvironmentPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowTerminal(true)}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
+                    className="btn-secondary flex items-center gap-2"
                     title="View scan logs"
                   >
                     <Terminal className="w-4 h-4" />
                     View Logs ({logs.length})
                   </button>
                   <button
-                    onClick={activeTab === 'variables' ? handleSelectAllVars : handleSelectAllPaths}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+                    onClick={() => {
+                      if (activeTab === 'variables') {
+                        setSelectedEnvironmentVars(selectedEnvironmentVars.map(v => {
+                          if (activeCategory === 'all') return { ...v, selected: true }
+                          if (activeCategory === 'developer' && isDeveloperVariable(v.name, v.value)) return { ...v, selected: true }
+                          if (activeCategory === 'system' && v.scope === 'system') return { ...v, selected: true }
+                          if (activeCategory === 'user' && v.scope === 'user') return { ...v, selected: true }
+                          return v
+                        }))
+                      } else {
+                        setSelectedPathEntries(selectedPathEntries.map(p => {
+                          if (activeCategory === 'all') return { ...p, selected: true }
+                          if (activeCategory === 'developer' && isDeveloperPath(p.path)) return { ...p, selected: true }
+                          if (activeCategory === 'system' && p.scope === 'system') return { ...p, selected: true }
+                          if (activeCategory === 'user' && p.scope === 'user') return { ...p, selected: true }
+                          return p
+                        }))
+                      }
+                    }}
+                    className="btn-accent"
                   >
                     Select All
                   </button>
                   <button
-                    onClick={activeTab === 'variables' ? handleDeselectAllVars : handleDeselectAllPaths}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition"
+                    onClick={() => {
+                      if (activeTab === 'variables') {
+                        setSelectedEnvironmentVars(selectedEnvironmentVars.map(v => {
+                          if (activeCategory === 'all') return { ...v, selected: false }
+                          if (activeCategory === 'developer' && isDeveloperVariable(v.name, v.value)) return { ...v, selected: false }
+                          if (activeCategory === 'system' && v.scope === 'system') return { ...v, selected: false }
+                          if (activeCategory === 'user' && v.scope === 'user') return { ...v, selected: false }
+                          return v
+                        }))
+                      } else {
+                        setSelectedPathEntries(selectedPathEntries.map(p => {
+                          if (activeCategory === 'all') return { ...p, selected: false }
+                          if (activeCategory === 'developer' && isDeveloperPath(p.path)) return { ...p, selected: false }
+                          if (activeCategory === 'system' && p.scope === 'system') return { ...p, selected: false }
+                          if (activeCategory === 'user' && p.scope === 'user') return { ...p, selected: false }
+                          return p
+                        }))
+                      }
+                    }}
+                    className="btn-secondary"
                   >
                     Deselect All
                   </button>
