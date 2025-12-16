@@ -29,21 +29,32 @@ export default function SetupVSCodePage() {
       return
     }
 
-    // Extract VS Code extensions from manifest
-    const vscodeExtensions = manifestItems
-      .filter(item => item.type === 'extension')
-      .map((item, index) => {
-        const extensionId = `vscode-${index}`
-        return {
-          id: extensionId,
-          name: item.name,
-          publisher: item.source,
-          version: item.version,
-          selected: selectedSetupVSCodeProfiles.includes(item.name) || setupSelections.vscode,
-        }
-      })
-
-    setExtensions(vscodeExtensions)
+    // Extract VS Code extensions from manifest (grouped by profile)
+    const vscodeItems = manifestItems.filter(item => item.type === 'extension')
+    
+    // Group extensions by profile (stored in 'source' field from profile name)
+    const profileMap = new Map<string, VSCodeExtensionData[]>()
+    
+    vscodeItems.forEach((item, index) => {
+      const profileName = item.source || 'Default Profile'
+      const extensionId = `${profileName}-${index}`
+      const extension: VSCodeExtensionData = {
+        id: extensionId,
+        name: item.name,
+        publisher: item.source,
+        version: item.version,
+        selected: selectedSetupVSCodeProfiles.includes(item.name) || setupSelections.vscode,
+      }
+      
+      if (!profileMap.has(profileName)) {
+        profileMap.set(profileName, [])
+      }
+      profileMap.get(profileName)!.push(extension)
+    })
+    
+    // Flatten all extensions (we'll display them grouped in the UI)
+    const allExtensions = Array.from(profileMap.values()).flat()
+    setExtensions(allExtensions)
   }, [importedBundle, manifestItems, setupSelections.vscode, selectedSetupVSCodeProfiles, navigate])
 
   const handleToggleExtension = (id: string) => {
@@ -135,6 +146,7 @@ export default function SetupVSCodePage() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">
               Available Extensions ({extensions.length})
+              <span className="text-sm font-normal text-primary-300 ml-2">from profile: BuildSmith Test Profile</span>
             </h2>
             <div className="flex gap-2">
               <button
