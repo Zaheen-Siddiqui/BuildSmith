@@ -118,15 +118,59 @@
       "type": "package",
       "source": "pip",
       "included": true
+    },
+    {
+      "name": "NODE_ENV",
+      "version": "development",
+      "type": "env",
+      "source": "environment",
+      "included": true
+    },
+    {
+      "name": "TEST_API_KEY",
+      "version": "test-api-key-12345",
+      "type": "env",
+      "source": "environment",
+      "included": true
+    },
+    {
+      "name": "DOCKER_HOST",
+      "version": "tcp://localhost:2375",
+      "type": "env",
+      "source": "environment",
+      "included": true
+    },
+    {
+      "name": "C:\\Program Files\\Git\\cmd",
+      "version": "1.0.0",
+      "type": "path",
+      "source": "environment",
+      "included": true
+    },
+    {
+      "name": "C:\\Program Files\\nodejs",
+      "version": "1.0.0",
+      "type": "path",
+      "source": "environment",
+      "included": true
+    },
+    {
+      "name": "%USERPROFILE%\\.npm-global",
+      "version": "1.0.0",
+      "type": "path",
+      "source": "environment",
+      "included": true
     }
   ],
-  "totalItems": 17,
+  "totalItems": 23,
   "categories": {
     "extensions": 5,
     "images": 2,
     "databases": 2,
     "installers": 3,
     "packages": 5,
+    "env": 3,
+    "path": 3,
     "profiles": 2
   }
 }
