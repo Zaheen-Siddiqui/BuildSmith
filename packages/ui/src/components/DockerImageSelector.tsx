@@ -17,6 +17,8 @@ interface DockerImageSelectorProps {
   images: DockerImageData[]
   onToggle: (id: string) => void
   onAdd?: (image: Omit<DockerImageData, 'id'>) => void
+  onSelectAll?: () => void
+  onDeselectAll?: () => void
   readonly?: boolean
   showAddCustom?: boolean
 }
@@ -26,6 +28,8 @@ export default function DockerImageSelector({
   images,
   onToggle,
   onAdd,
+  onSelectAll,
+  onDeselectAll,
   readonly = false,
   showAddCustom = true,
 }: DockerImageSelectorProps) {
@@ -80,11 +84,33 @@ export default function DockerImageSelector({
               {selectedCount} images selected • ~{totalSize.toFixed(0)} MB total
             </p>
           </div>
-          {mode === 'setup' && (
-            <div className="text-sm text-primary-400">
-              {images.filter(img => img.available).length} already available locally
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {mode === 'setup' && (
+              <div className="text-sm text-primary-400">
+                {images.filter(img => img.available).length} already available locally
+              </div>
+            )}
+            {!readonly && (onSelectAll || onDeselectAll) && (
+              <div className="flex gap-2">
+                {onSelectAll && (
+                  <button
+                    onClick={onSelectAll}
+                    className="btn-secondary text-sm"
+                  >
+                    Select All
+                  </button>
+                )}
+                {onDeselectAll && (
+                  <button
+                    onClick={onDeselectAll}
+                    className="btn-secondary text-sm"
+                  >
+                    Deselect All
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

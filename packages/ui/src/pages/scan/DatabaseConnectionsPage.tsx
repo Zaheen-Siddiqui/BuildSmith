@@ -13,7 +13,8 @@ export default function DatabaseConnectionsPage() {
   const [atlasPasswordModal, setAtlasPasswordModal] = useState<{
     isOpen: boolean
     connection: DatabaseConnection | null
-  }>({ isOpen: false, connection: null })
+    pendingConnections: DatabaseConnection[]
+  }>({ isOpen: false, connection: null, pendingConnections: [] })
 
   // Get from store
   const { 
@@ -206,6 +207,43 @@ export default function DatabaseConnectionsPage() {
                 {selectedCount} connections selected
               </p>
             </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  // Find all Atlas connections that need credentials
+                  const atlasConnections = selectedDatabases.filter(
+                    conn => conn.isAtlas && !conn.password
+                  )
+                  
+                  if (atlasConnections.length > 0) {
+                    // Show modal for first Atlas connection
+                    setAtlasPasswordModal({
+                      isOpen: true,
+                      connection: atlasConnections[0],
+                      pendingConnections: atlasConnections.slice(1)
+                    })
+                  } else {
+                    // No Atlas connections, just select all
+                    setSelectedDatabases(
+                      selectedDatabases.map(conn => ({ ...conn, selected: true }))
+                    )
+                  }
+                }}
+                className="btn-secondary text-sm"
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedDatabases(
+                    selectedDatabases.map(conn => ({ ...conn, selected: false }))
+                  )
+                }}
+                className="btn-secondary text-sm"
+              >
+                Deselect All
+              </button>
+            </div>
           </div>
         </div>
 
@@ -225,7 +263,7 @@ export default function DatabaseConnectionsPage() {
                   onChange={() => {
                     // If this is an Atlas connection being selected and no password is set, show modal
                     if (conn.isAtlas && !conn.selected && !conn.password) {
-                      setAtlasPasswordModal({ isOpen: true, connection: conn });
+                      setAtlasPasswordModal({ isOpen: true, connection: conn, pendingConnections: [] });
                       return;
                     }
                     toggleDatabase(conn.id);
@@ -304,7 +342,7 @@ export default function DatabaseConnectionsPage() {
         <AtlasPasswordModal
           isOpen={atlasPasswordModal.isOpen}
           connection={atlasPasswordModal.connection}
-          onClose={() => setAtlasPasswordModal({ isOpen: false, connection: null })}
+          onClose={() => setAtlasPasswordModal({ isOpen: false, connection: null, pendingConnections: [] })}
           onSubmit={(credentials) => {
             if (atlasPasswordModal.connection) {
               // Update the connection with the username, password and select it
@@ -315,8 +353,20 @@ export default function DatabaseConnectionsPage() {
                     : conn
                 )
               );
+              
+              // If there are more pending connections, show modal for next one
+              if (atlasPasswordModal.pendingConnections.length > 0) {
+                const nextConnection = atlasPasswordModal.pendingConnections[0]
+                setAtlasPasswordModal({
+                  isOpen: true,
+                  connection: nextConnection,
+                  pendingConnections: atlasPasswordModal.pendingConnections.slice(1)
+                })
+              } else {
+                // No more pending, close modal
+                setAtlasPasswordModal({ isOpen: false, connection: null, pendingConnections: [] });
+              }
             }
-            setAtlasPasswordModal({ isOpen: false, connection: null });
           }}
         />
       </div>

@@ -214,6 +214,28 @@ export default function VSCodeProfilesPage() {
                 {selectedCount} profiles selected
               </p>
             </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSelectedVSCodeProfiles(
+                    selectedVSCodeProfiles.map(p => ({ ...p, selected: true }))
+                  )
+                }}
+                className="btn-secondary text-sm"
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedVSCodeProfiles(
+                    selectedVSCodeProfiles.map(p => ({ ...p, selected: false }))
+                  )
+                }}
+                className="btn-secondary text-sm"
+              >
+                Deselect All
+              </button>
+            </div>
           </div>
         </div>
 
