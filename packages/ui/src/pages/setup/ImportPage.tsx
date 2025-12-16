@@ -102,9 +102,11 @@ export default function ImportPage() {
       console.log('  - PATH entries:', manifestsJson.items.filter((i: any) => i.type === 'path').length)
       
       // Parse VS Code profile files from profiles/ folder
-      const profileFiles = Object.keys(zip.files).filter(path => 
-        path.startsWith('profiles/') && path.endsWith('-profile.json')
-      )
+      const profileFiles = Object.keys(zip.files).filter(path => {
+        // Normalize path to use forward slashes for cross-platform compatibility
+        const normalizedPath = path.replace(/\\/g, '/')
+        return normalizedPath.startsWith('profiles/') && normalizedPath.endsWith('-profile.json')
+      })
       
       console.log('[ImportPage] 📂 Found profile files:', profileFiles)
       
