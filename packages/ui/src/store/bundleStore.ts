@@ -180,6 +180,17 @@ export interface BundleState {
   }
   setSetupSelections: (selections: Partial<BundleState['setupSelections']>) => void
   
+  // Setup completion tracking - tracks if setup steps have been completed and data is cached
+  setupCompleted: {
+    vscode: boolean
+    docker: boolean
+    databases: boolean
+    devtools: boolean
+    environment: boolean
+    packages: boolean
+  }
+  setSetupCompleted: (completed: Partial<BundleState['setupCompleted']>) => void
+  
   // Selected docker images for setup (subset of manifest items)
   selectedSetupDockerImages: string[] // Array of image IDs that user selected
   setSelectedSetupDockerImages: (imageIds: string[]) => void
@@ -353,6 +364,20 @@ export const useBundleStore = create<BundleState>()(
         set((state) => ({
           setupSelections: { ...state.setupSelections, ...selections },
         })),
+      
+      // Setup completion tracking
+      setupCompleted: {
+        vscode: false,
+        docker: false,
+        databases: false,
+        devtools: false,
+        environment: false,
+        packages: false,
+      },
+      setSetupCompleted: (completed) =>
+        set((state) => ({
+          setupCompleted: { ...state.setupCompleted, ...completed },
+        })),
 
       // Selected docker images for setup
       selectedSetupDockerImages: [],
@@ -429,6 +454,11 @@ export const useBundleStore = create<BundleState>()(
         manifestItems: state.manifestItems,
         exportPath: state.exportPath,
         setupSelections: state.setupSelections,
+        setupCompleted: state.setupCompleted,
+        selectedSetupDockerImages: state.selectedSetupDockerImages,
+        selectedSetupVSCodeProfiles: state.selectedSetupVSCodeProfiles,
+        selectedSetupDatabases: state.selectedSetupDatabases,
+        importedBundle: state.importedBundle,
       }),
     }
   )
