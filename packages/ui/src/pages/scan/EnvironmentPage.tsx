@@ -41,10 +41,18 @@ export default function EnvironmentPage() {
     selectedPackages,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.environment && (selectedEnvironmentVars.length > 0 || selectedPathEntries.length > 0)) {
+      setScanComplete(true)
+      return
+    }
+    
     if (!scanInitiatedRef.current && !scanComplete && selectedEnvironmentVars.length === 0 && selectedPathEntries.length === 0) {
       scanInitiatedRef.current = true
       const performScan = async () => {
@@ -85,6 +93,7 @@ export default function EnvironmentPage() {
             
             setSelectedEnvironmentVars(vars)
             setSelectedPathEntries(paths)
+            setScanCompleted({ environment: true })
             setIsScanning(false)
             setScanComplete(true)
           }

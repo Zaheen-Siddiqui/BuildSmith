@@ -36,10 +36,18 @@ export default function DevToolsPage() {
     selectedPackages,
     setManifestItems,
     setCurrentBundle,
+    scanCompleted,
+    setScanCompleted,
   } = useBundleStore()
 
   // Trigger scan on mount
   useEffect(() => {
+    // If scan already completed and we have data, skip scanning and show results
+    if (scanCompleted.devtools && selectedDevTools.length > 0) {
+      setScanComplete(true)
+      return
+    }
+    
     if (!scanInitiatedRef.current && !scanComplete && selectedDevTools.length === 0) {
       scanInitiatedRef.current = true
       const performScan = async () => {
@@ -72,6 +80,7 @@ export default function DevToolsPage() {
             }))
             
             setSelectedDevTools(tools)
+            setScanCompleted({ devtools: true })
             setIsScanning(false)
             setScanComplete(true)
           }
