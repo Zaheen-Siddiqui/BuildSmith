@@ -63,11 +63,15 @@ export default function ImportPage() {
     setError('')
     
     try {
-      // Read the bundle file
+      // Read the bundle file using Electron API
       console.log('[ImportPage] 📂 Reading bundle file...')
-      const response = await fetch(`file://${selectedFile.path}`)
-      const arrayBuffer = await response.arrayBuffer()
-      const zip = await JSZip.loadAsync(arrayBuffer)
+      const result = await window.electronAPI.readBundle(selectedFile.path)
+      
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to read bundle file')
+      }
+      
+      const zip = await JSZip.loadAsync(result.data)
       
       // Parse bundle.json
       const bundleJsonFile = zip.file('bundle.json')

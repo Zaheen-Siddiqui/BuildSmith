@@ -40,6 +40,13 @@ const electronAPI = {
   },
 
   /**
+   * Read a bundle file and return its contents as ArrayBuffer
+   */
+  readBundle: (filePath: string): Promise<{ success: boolean; data?: ArrayBuffer; error?: string }> => {
+    return ipcRenderer.invoke('fs:readBundle', filePath)
+  },
+
+  /**
    * Development: Check if running in dev mode
    */
   isDev: (): boolean => {
