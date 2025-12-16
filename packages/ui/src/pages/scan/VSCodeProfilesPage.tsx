@@ -44,14 +44,22 @@ export default function VSCodeProfilesPage() {
           if (event.type === 'result' && event.stepId === 'scan-vscode' && event.state === 'success') {
             const data = event.data as VSCodeScanResult
             
+            console.log('🔍 VS Code scan result received:', data)
+            console.log(`📊 Found ${data.profiles.length} profiles:`)
+            data.profiles.forEach(p => {
+              console.log(`  - ${p.name}: ${p.extensions.length} extensions`)
+            })
+            
             // Convert scan results to store format
             const profiles = data.profiles.map(profile => ({
               id: profile.id,
               name: profile.name,
-              extensions: profile.extensions.map(ext => ext.name),
+              extensions: profile.extensions.map(ext => ext.id),
               settings: {},
               selected: false
             }))
+            
+            console.log('✅ Profiles stored in state:', profiles)
             
             setSelectedVSCodeProfiles(profiles)
             setScanCompleted({ vscode: true })

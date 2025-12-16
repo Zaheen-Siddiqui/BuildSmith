@@ -104,32 +104,38 @@ while ($true) {
                 # Load VS Code scanner module
                 Import-Module "$PSScriptRoot\modules\vscode.psm1" -Force
                 
-                # Run VS Code scan
-                $profileData = Get-VSCodeProfiles
+                # Run VS Code scan - returns array of profiles
+                $vscodeProfiles = Get-VSCodeProfiles
                 
-                # Format result to match frontend expectations
-                $result = @{
-                    type = "vscode-scan-result"
-                    profiles = @(
-                        @{
-                            id = "default"
-                            name = "Default"
-                            extensions = @($profileData.extensions | ForEach-Object {
-                                @{
-                                    name = $_.id
-                                    version = $_.version
-                                }
-                            })
-                            settingsCount = if ($profileData.settings) { ($profileData.settings.PSObject.Properties | Measure-Object).Count } else { 0 }
-                            keybindingsCount = if ($profileData.keybindings) { ($profileData.keybindings | Measure-Object).Count } else { 0 }
-                        }
-                    )
+                if ($vscodeProfiles -and $vscodeProfiles.Count -gt 0) {
+                    # Format result to match frontend expectations
+                    $result = @{
+                        type = "vscode-scan-result"
+                        profiles = @($vscodeProfiles | ForEach-Object {
+                            @{
+                                id = $_.id
+                                name = $_.name
+                                extensions = @($_.extensions | ForEach-Object {
+                                    @{
+                                        id = $_.id
+                                        name = $_.id
+                                        version = $_.version
+                                    }
+                                })
+                                settingsCount = if ($_.settings) { ($_.settings.PSObject.Properties | Measure-Object).Count } else { 0 }
+                                keybindingsCount = if ($_.keybindings -and $_.keybindings -is [Array]) { $_.keybindings.Count } else { 0 }
+                            }
+                        })
+                    }
+                    
+                    $totalExtensions = ($vscodeProfiles | ForEach-Object { $_.extensions.Count } | Measure-Object -Sum).Sum
+                    Emit-Log -StepId "scan-vscode" -Level "success" -Text "Found $($vscodeProfiles.Count) profile(s) with $totalExtensions total extensions"
+                    
+                    # Emit result event
+                    Emit-Event -Type "result" -StepId "scan-vscode" -State "success" -Data $result
+                } else {
+                    Emit-Log -StepId "scan-vscode" -Level "warn" -Text "No VS Code profiles found or no extensions installed"
                 }
-                
-                Emit-Log -StepId "scan-vscode" -Level "success" -Text "Found $($profileData.extensions.Count) extensions"
-                
-                # Emit result event
-                Emit-Event -Type "result" -StepId "scan-vscode" -State "success" -Data $result
             }
             
             "scanDocker" {

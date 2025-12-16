@@ -32,7 +32,7 @@ function Get-VSCodeProfiles {
         Get current VS Code profile data for bundle creation
     .DESCRIPTION
         Scans the current VS Code installation and returns profile data including
-        installed extensions, settings, and keybindings
+        installed extensions, settings, and keybindings. Detects multiple profiles if available.
     #>
     
     try {
@@ -43,18 +43,18 @@ function Get-VSCodeProfiles {
             return $null
         }
         
-        $profile = @{
-            extensions = @()
-            settings = $null
-            keybindings = $null
-        }
+        $profiles = @()
         
-        # Get installed extensions
-        $extensionsOutput = & code --list-extensions --show-versions 2>$null
+        # First, always get the default/current profile extensions
+        $defaultExtensions = @()
+        
+        # For default profile, code --list-extensions returns the correct count
+        $extensionsOutput = & code --list-extensions --show-versions 2>&1
+        
         if ($LASTEXITCODE -eq 0 -and $extensionsOutput) {
             foreach ($line in $extensionsOutput) {
-                if ($line -match '^(.+)@(.+)$') {
-                    $profile.extensions += @{
+                if ($line -and $line -match '^(.+)@(.+)$') {
+                    $defaultExtensions += @{
                         id = $matches[1]
                         version = $matches[2]
                     }
@@ -62,27 +62,129 @@ function Get-VSCodeProfiles {
             }
         }
         
-        # Read settings.json if exists
+        # Read default settings and keybindings
+        $defaultSettings = $null
+        $defaultKeybindings = $null
+        
         if (Test-Path $paths.settingsPath) {
-            $settingsContent = Get-Content $paths.settingsPath -Raw
             try {
-                $profile.settings = $settingsContent | ConvertFrom-Json
+                $defaultSettings = Get-Content $paths.settingsPath -Raw | ConvertFrom-Json
             } catch {
-                Write-Warning "Failed to parse settings.json: $($_.Exception.Message)"
+                # Ignore parse errors
             }
         }
         
-        # Read keybindings.json if exists
         if (Test-Path $paths.keybindingsPath) {
-            $keybindingsContent = Get-Content $paths.keybindingsPath -Raw
             try {
-                $profile.keybindings = $keybindingsContent | ConvertFrom-Json
+                $defaultKeybindings = Get-Content $paths.keybindingsPath -Raw | ConvertFrom-Json
             } catch {
-                Write-Warning "Failed to parse keybindings.json: $($_.Exception.Message)"
+                # Ignore parse errors
             }
         }
         
-        return $profile
+        # Create default profile with actual extensions
+        $profiles += @{
+            id = "default"
+            name = "Default Profile"
+            extensions = $defaultExtensions
+            settings = $defaultSettings
+            keybindings = $defaultKeybindings
+        }
+        
+        # Get profile names from VS Code storage
+        $profileNames = @{}
+        $storageFile = "$env:APPDATA\Code\User\globalStorage\storage.json"
+        if (Test-Path $storageFile) {
+            try {
+                $storage = Get-Content $storageFile -Raw | ConvertFrom-Json
+                if ($storage.userDataProfiles) {
+                    foreach ($profile in $storage.userDataProfiles) {
+                        if ($profile.location -and $profile.name) {
+                            $profileNames[$profile.location] = $profile.name
+                        }
+                    }
+                }
+            } catch {
+                # Ignore storage parsing errors
+            }
+        }
+        
+        # Check for additional profiles (VS Code 1.75+)
+        $profilesDir = "$env:APPDATA\Code\User\profiles"
+        
+        if (Test-Path $profilesDir) {
+            $profileFolders = Get-ChildItem -Path $profilesDir -Directory -ErrorAction SilentlyContinue
+            
+            foreach ($profileFolder in $profileFolders) {
+                $profileId = $profileFolder.Name
+                
+                # Get friendly name from storage, fallback to folder name
+                $profileName = if ($profileNames.ContainsKey($profileId)) {
+                    $profileNames[$profileId]
+                } else {
+                    $profileId
+                }
+                
+                # Get extensions for this profile using --profile flag with the friendly name
+                $profileExtensions = @()
+                
+                # Try using code CLI with profile name
+                $profileExtOutput = & code --list-extensions --show-versions --profile $profileName 2>&1
+                
+                if ($LASTEXITCODE -eq 0 -and $profileExtOutput) {
+                    foreach ($line in $profileExtOutput) {
+                        if ($line -and $line -match '^(.+)@(.+)$') {
+                            $profileExtensions += @{
+                                id = $matches[1]
+                                version = $matches[2]
+                            }
+                        }
+                    }
+                }
+                
+                # If CLI didn't work, try reading from extensions.json
+                if ($profileExtensions.Count -eq 0) {
+                    $profileExtensionsPath = Join-Path $profileFolder.FullName "extensions.json"
+                    
+                    if (Test-Path $profileExtensionsPath) {
+                        try {
+                            $extData = Get-Content $profileExtensionsPath -Raw | ConvertFrom-Json
+                            foreach ($ext in $extData) {
+                                if ($ext.identifier -and $ext.identifier.id -and $ext.version) {
+                                    $profileExtensions += @{
+                                        id = $ext.identifier.id
+                                        version = $ext.version
+                                    }
+                                }
+                            }
+                        } catch {
+                            # Ignore parse errors
+                        }
+                    }
+                }
+                
+                # Read profile settings
+                $profileSettingsPath = Join-Path $profileFolder.FullName "settings.json"
+                $profileSettings = $null
+                if (Test-Path $profileSettingsPath) {
+                    try {
+                        $profileSettings = Get-Content $profileSettingsPath -Raw | ConvertFrom-Json
+                    } catch {
+                        # Ignore
+                    }
+                }
+                
+                $profiles += @{
+                    id = $profileId
+                    name = $profileName
+                    extensions = $profileExtensions
+                    settings = $profileSettings
+                    keybindings = $null
+                }
+            }
+        }
+        
+        return $profiles
     }
     catch {
         Write-Warning "Failed to get VS Code profiles: $($_.Exception.Message)"
