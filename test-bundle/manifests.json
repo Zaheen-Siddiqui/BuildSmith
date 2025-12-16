@@ -1,6 +1,41 @@
 {
   "items": [
     {
+      "name": "dbaeumer.vscode-eslint",
+      "version": "2.4.0",
+      "type": "extension",
+      "source": "Default Profile",
+      "included": true
+    },
+    {
+      "name": "esbenp.prettier-vscode",
+      "version": "9.10.4",
+      "type": "extension",
+      "source": "Default Profile",
+      "included": true
+    },
+    {
+      "name": "ms-python.python",
+      "version": "2023.22.1",
+      "type": "extension",
+      "source": "Default Profile",
+      "included": true
+    },
+    {
+      "name": "eamodio.gitlens",
+      "version": "14.5.0",
+      "type": "extension",
+      "source": "Default Profile",
+      "included": true
+    },
+    {
+      "name": "bradlc.vscode-tailwindcss",
+      "version": "0.10.5",
+      "type": "extension",
+      "source": "testing",
+      "included": true
+    },
+    {
       "name": "nginx:alpine",
       "version": "alpine",
       "type": "image",
@@ -84,5 +119,14 @@
       "source": "pip",
       "included": true
     }
-  ]
+  ],
+  "totalItems": 17,
+  "categories": {
+    "extensions": 5,
+    "images": 2,
+    "databases": 2,
+    "installers": 3,
+    "packages": 5,
+    "profiles": 2
+  }
 }
