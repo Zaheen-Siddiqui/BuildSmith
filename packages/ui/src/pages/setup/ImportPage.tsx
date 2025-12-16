@@ -97,6 +97,14 @@ export default function ImportPage() {
         { name: 'prettier', version: '3.1.1', type: 'package' as const, source: 'npm', included: true },
         { name: 'requests', version: '2.31.0', type: 'package' as const, source: 'pip', included: true },
         { name: 'flask', version: '3.0.0', type: 'package' as const, source: 'pip', included: true },
+        // Environment variables (from environment.json in bundle)
+        { name: 'NODE_ENV', version: 'development', type: 'env' as const, source: 'environment', included: true },
+        { name: 'TEST_API_KEY', version: 'test-api-key-12345', type: 'env' as const, source: 'environment', included: true },
+        { name: 'DOCKER_HOST', version: 'tcp://localhost:2375', type: 'env' as const, source: 'environment', included: true },
+        // PATH entries (from environment.json PATH field, split by semicolon)
+        { name: 'C:\\Program Files\\Git\\cmd', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
+        { name: 'C:\\Program Files\\nodejs', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
+        { name: '%USERPROFILE%\\.npm-global', version: '1.0.0', type: 'path' as const, source: 'environment', included: true },
       ]
       console.log('[ImportPage] 📦 Manifest items count:', mockManifest.length)
       console.log('[ImportPage] 📊 Manifest breakdown:')
@@ -105,6 +113,8 @@ export default function ImportPage() {
       console.log('  - Databases:', mockManifest.filter(i => i.type === 'database').length)
       console.log('  - DevTools:', mockManifest.filter(i => i.type === 'installer').length)
       console.log('  - Packages:', mockManifest.filter(i => i.type === 'package').length)
+      console.log('  - Environment vars:', mockManifest.filter(i => i.type === 'env').length)
+      console.log('  - PATH entries:', mockManifest.filter(i => i.type === 'path').length)
       
       // Set imported data in store
       console.log('[ImportPage] 💾 Saving bundle metadata to store')
@@ -118,6 +128,7 @@ export default function ImportPage() {
       const hasDatabase = mockManifest.some(item => item.type === 'database')
       const hasDevtools = mockManifest.some(item => item.type === 'installer')
       const hasPackages = mockManifest.some(item => item.type === 'package')
+      const hasEnvironment = mockManifest.some(item => item.type === 'env' || item.type === 'path')
       
       console.log('[ImportPage] 🔍 Auto-detected categories:')
       console.log('  - VS Code:', hasVSCode)
@@ -125,6 +136,7 @@ export default function ImportPage() {
       console.log('  - Databases:', hasDatabase)
       console.log('  - DevTools:', hasDevtools)
       console.log('  - Packages:', hasPackages)
+      console.log('  - Environment:', hasEnvironment)
       
       setScanSettings({
         vscode: hasVSCode,
@@ -132,7 +144,7 @@ export default function ImportPage() {
         databases: hasDatabase,
         devtools: hasDevtools,
         packages: hasPackages,
-        environment: false,
+        environment: hasEnvironment,
         includeSecrets: bundleMetadata.encrypted,
       })
       
