@@ -55,6 +55,23 @@ try {
         
         $vscodeProfiles = Get-VSCodeProfiles
         if ($vscodeProfiles -and $vscodeProfiles.Count -gt 0) {
+            # Save profiles in VS Code native export format (multiple profile files)
+            $profilesDir = Join-Path $bundleDir "profiles"
+            New-Item -ItemType Directory -Path $profilesDir -Force | Out-Null
+            
+            foreach ($profile in $vscodeProfiles) {
+                if ($profile.exportData) {
+                    # Use profile name for filename, sanitized
+                    $safeName = $profile.name -replace '[^\w\-]', '_'
+                    $profileFileName = "$safeName-profile.json"
+                    $profileFile = Join-Path $profilesDir $profileFileName
+                    $profile.exportData | ConvertTo-Json -Depth 10 | Out-File $profileFile -Encoding UTF8
+                    
+                    Emit-Log -StepId "scan-vscode" -Level "info" -Text "Saved profile: $($profile.name) -> $profileFileName"
+                }
+            }
+            
+            # Also save combined legacy format for backward compatibility
             $vscodeFile = Join-Path $bundleDir "vscode-profiles.json"
             $vscodeProfiles | ConvertTo-Json -Depth 10 | Out-File $vscodeFile -Encoding UTF8
             $manifest.vscodeProfile = "vscode-profiles.json"
@@ -66,6 +83,7 @@ try {
             $resultData = @{
                 type = "vscode-scan-result"
                 profiles = @($vscodeProfiles | ForEach-Object {
+                    $safeName = $_.name -replace '[^\w\-]', '_'
                     @{
                         id = $_.id
                         name = $_.name
@@ -78,6 +96,7 @@ try {
                         })
                         settingsCount = if ($_.settings) { ($_.settings.PSObject.Properties | Measure-Object).Count } else { 0 }
                         keybindingsCount = if ($_.keybindings -and $_.keybindings -is [Array]) { $_.keybindings.Count } else { 0 }
+                        exportFile = "$safeName-profile.json"  # Reference to VS Code native format file
                     }
                 })
             }

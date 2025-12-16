@@ -82,13 +82,34 @@ function Get-VSCodeProfiles {
             }
         }
         
-        # Create default profile with actual extensions
+        # Create default profile in VS Code export format
+        $defaultProfile = @{
+            name = "Default Profile"
+            extensions = @($defaultExtensions | ForEach-Object {
+                @{
+                    identifier = @{ id = $_.id }
+                    version = $_.version
+                }
+            })
+        }
+        
+        # Add settings if present
+        if ($defaultSettings) {
+            $defaultProfile.settings = $defaultSettings
+        }
+        
+        # Add keybindings if present  
+        if ($defaultKeybindings) {
+            $defaultProfile.keybindings = $defaultKeybindings
+        }
+        
         $profiles += @{
             id = "default"
             name = "Default Profile"
             extensions = $defaultExtensions
             settings = $defaultSettings
             keybindings = $defaultKeybindings
+            exportData = $defaultProfile  # VS Code native format
         }
         
         # Get profile names from VS Code storage
@@ -174,12 +195,29 @@ function Get-VSCodeProfiles {
                     }
                 }
                 
+                # Create VS Code native export format
+                $profileExportData = @{
+                    name = $profileName
+                    extensions = @($profileExtensions | ForEach-Object {
+                        @{
+                            identifier = @{ id = $_.id }
+                            version = $_.version
+                        }
+                    })
+                }
+                
+                # Add settings if present
+                if ($profileSettings) {
+                    $profileExportData.settings = $profileSettings
+                }
+                
                 $profiles += @{
                     id = $profileId
                     name = $profileName
                     extensions = $profileExtensions
                     settings = $profileSettings
                     keybindings = $null
+                    exportData = $profileExportData  # VS Code native format
                 }
             }
         }
