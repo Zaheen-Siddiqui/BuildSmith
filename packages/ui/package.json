@@ -1,7 +1,7 @@
 {
   "name": "@buildsmith/ui",
-  "version": "0.1.0",
-  "description": "BuildSmith UI - Electron + React application",
+  "version": "1.0.0",
+  "description": "BuildSmith - Automated Development Environment Replication",
   "main": "dist-electron/main.js",
   "author": "BuildSmith Team",
   "repository": {
@@ -73,16 +73,30 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ],
     "win": {
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "requestedExecutionLevel": "requireAdministrator"
     },
     "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": false
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "requestExecutionLevel": "admin"
     },
     "publish": null
   }
