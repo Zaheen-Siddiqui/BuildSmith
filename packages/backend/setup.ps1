@@ -132,6 +132,17 @@ try {
         Remove-Item $bundleToExtract -Force -ErrorAction SilentlyContinue
     }
     
+    # Check if files are in a subdirectory (e.g., "test-bundle/")
+    $bundleFile = Join-Path $extractDir "bundle.json"
+    if (-not (Test-Path $bundleFile)) {
+        # Look for subdirectory with bundle.json
+        $subDirs = Get-ChildItem -Path $extractDir -Directory
+        if ($subDirs.Count -eq 1) {
+            $extractDir = $subDirs[0].FullName
+            Emit-Log -StepId "extract-bundle" -Level "info" -Text "Detected nested bundle structure: $($subDirs[0].Name)"
+        }
+    }
+    
     Emit-Result -StepId "extract-bundle" -State "success" -Duration 2
     
     # Read bundle metadata

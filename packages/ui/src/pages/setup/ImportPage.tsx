@@ -96,18 +96,36 @@ export default function ImportPage() {
     
     try {
       // Read the bundle file using Electron API
-      console.log('[ImportPage] 📂 Reading bundle file...')
+      console.log('[ImportPage] 📂 Reading bundle file from:', selectedFile.path)
       const result = await window.electronAPI.readBundle(selectedFile.path)
       
       if (!result.success || !result.data) {
+        console.error('[ImportPage] ❌ Failed to read bundle:', result.error)
         throw new Error(result.error || 'Failed to read bundle file')
       }
       
+      console.log('[ImportPage] ✅ Bundle file read, size:', result.data.byteLength, 'bytes')
       const zip = await JSZip.loadAsync(result.data)
       
+      console.log('[ImportPage] 📦 ZIP loaded, files:', Object.keys(zip.files))
+      
+      // Detect if files are in a subdirectory (e.g., "test-bundle/")
+      const fileList = Object.keys(zip.files).filter(f => !zip.files[f].dir)
+      const rootPrefix = fileList.length > 0 && fileList[0].includes('/') 
+        ? fileList[0].substring(0, fileList[0].indexOf('/') + 1)
+        : ''
+      
+      console.log('[ImportPage] 📁 Root prefix detected:', rootPrefix || '(none)')
+      
+      // Helper function to get file with optional prefix
+      const getFile = (path: string) => {
+        return zip.file(rootPrefix + path) || zip.file(path)
+      }
+      
       // Parse bundle.json
-      const bundleJsonFile = zip.file('bundle.json')
+      const bundleJsonFile = getFile('bundle.json')
       if (!bundleJsonFile) {
+        console.error('[ImportPage] ❌ bundle.json not found in ZIP. Available files:', Object.keys(zip.files))
         throw new Error('Invalid bundle: missing bundle.json')
       }
       const bundleJsonContent = await bundleJsonFile.async('string')
@@ -116,7 +134,7 @@ export default function ImportPage() {
       console.log('[ImportPage] 📋 Bundle metadata:', bundleJson)
       
       // Parse manifests.json
-      const manifestsJsonFile = zip.file('manifests.json')
+      const manifestsJsonFile = getFile('manifests.json')
       if (!manifestsJsonFile) {
         throw new Error('Invalid bundle: missing manifests.json')
       }
@@ -137,7 +155,9 @@ export default function ImportPage() {
       const profileFiles = Object.keys(zip.files).filter(path => {
         // Normalize path to use forward slashes for cross-platform compatibility
         const normalizedPath = path.replace(/\\/g, '/')
-        return normalizedPath.startsWith('profiles/') && normalizedPath.endsWith('-profile.json')
+        // Check both with and without root prefix
+        return (normalizedPath.startsWith(rootPrefix + 'profiles/') || normalizedPath.startsWith('profiles/')) 
+          && normalizedPath.endsWith('-profile.json')
       })
       
       console.log('[ImportPage] 📂 Found profile files:', profileFiles)
