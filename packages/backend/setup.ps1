@@ -31,6 +31,12 @@ Import-Module "$PSScriptRoot/modules/docker.psm1" -Force
 # Load prerequisites module
 Import-Module "$PSScriptRoot/modules/prerequisites.psm1" -Force
 
+# Load environment module
+Import-Module "$PSScriptRoot/modules/environment.psm1" -Force
+
+# Load git config module
+Import-Module "$PSScriptRoot/modules/gitconfig.psm1" -Force
+
 $ErrorActionPreference = "Continue"
 
 # Define helper functions for operations not yet in modules
@@ -467,36 +473,50 @@ try {
         }
     }
     
-    # Set environment variables
+    # Set environment variables and apply PATH
     if ($SelectedItems -contains "environment") {
         $envFile = Join-Path $extractDir "environment.json"
         
         if (Test-Path $envFile) {
             $envData = Get-Content $envFile | ConvertFrom-Json
-            Emit-Log -StepId "setup" -Level "info" -Text "Processing environment variables..."
-            Emit-Status -StepId "set-env" -State "running" -Message "Setting environment variables..."
+            Emit-Log -StepId "setup" -Level "info" -Text "Applying environment variables and PATH..."
             
-            $envCount = 0
-            foreach ($prop in $envData.PSObject.Properties) {
-                if ($prop.Name -ne "PATH") {
-                    Emit-Log -StepId "set-env" -Level "info" -Text "Env: $($prop.Name) = $($prop.Value)"
-                    $envCount++
-                }
+            # Use environment module to actually apply settings
+            $envResult = Set-EnvironmentFromData -EnvironmentData $envData -Scope 'User'
+            
+            if ($envResult.success) {
+                Emit-Log -StepId "set-env" -Level "success" -Text "Applied $($envResult.variablesSet) variables and $($envResult.pathEntriesAdded) PATH entries"
+            } else {
+                Emit-Log -StepId "set-env" -Level "error" -Text "Some environment settings failed"
+                $failedSteps += "set-environment"
             }
-            
-            if ($envData.PATH) {
-                $pathEntries = $envData.PATH -split ';' | Where-Object { $_ -ne '' }
-                Emit-Log -StepId "set-env" -Level "info" -Text "PATH entries: $($pathEntries.Count)"
-                foreach ($entry in $pathEntries) {
-                    Emit-Log -StepId "set-env" -Level "info" -Text "  - $entry"
-                }
-            }
-            
-            Emit-Log -StepId "set-env" -Level "success" -Text "Processed $envCount environment variables"
-            Emit-Result -StepId "set-env" -State "success" -Duration 1
         } else {
             Emit-Log -StepId "setup" -Level "warning" -Text "No environment.json file found"
         }
+    }
+    
+    # Apply git configuration
+    $gitConfigFile = Join-Path $extractDir "gitconfig.json"
+    if (Test-Path $gitConfigFile) {
+        Emit-Log -StepId "setup" -Level "info" -Text "Applying git configuration..."
+        
+        $gitConfigData = Get-Content $gitConfigFile | ConvertFrom-Json
+        $gitConfigHash = @{}
+        
+        # Convert PSObject to hashtable
+        foreach ($prop in $gitConfigData.PSObject.Properties) {
+            $gitConfigHash[$prop.Name] = $prop.Value
+        }
+        
+        $gitResult = Set-GitConfiguration -ConfigData $gitConfigHash
+        
+        if ($gitResult.success) {
+            Emit-Log -StepId "setup" -Level "success" -Text "Applied $($gitResult.applied) git config settings"
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "Some git config settings failed"
+        }
+    } else {
+        Emit-Log -StepId "setup" -Level "info" -Text "No git configuration found in bundle"
     }
     
     <# Legacy drivers code

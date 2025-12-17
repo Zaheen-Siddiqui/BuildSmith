@@ -16,7 +16,7 @@ Hashtable with installed status and version
 function Test-PrerequisiteInstalled {
     param(
         [Parameter(Mandatory=$true)]
-        [ValidateSet('docker', 'code', 'node', 'npm', 'python', 'pip', 'git', 'wsl', 'mongodb', 'postgresql')]
+        [ValidateSet('docker', 'code', 'node', 'npm', 'python', 'pip', 'git', 'wsl', 'mongodb', 'postgresql', 'jdk', 'java', 'mingw', 'gcc', 'awscli', 'terraform', 'azurecli')]
         [string]$ToolName
     )
     
@@ -130,6 +130,76 @@ function Test-PrerequisiteInstalled {
                     $result.path = $pgService.Name
                 }
             }
+            'jdk' {
+                # Check for Java JDK
+                $javaCmd = Get-Command java -ErrorAction SilentlyContinue
+                if ($javaCmd) {
+                    $version = (java -version 2>&1 | Select-Object -First 1) -replace 'openjdk version ', '' -replace 'java version ', '' -replace '"', ''
+                    $result.installed = $true
+                    $result.version = $version.Trim()
+                    $result.path = $javaCmd.Source
+                }
+            }
+            'java' {
+                # Alias for jdk
+                $javaCmd = Get-Command java -ErrorAction SilentlyContinue
+                if ($javaCmd) {
+                    $version = (java -version 2>&1 | Select-Object -First 1) -replace 'openjdk version ', '' -replace 'java version ', '' -replace '"', ''
+                    $result.installed = $true
+                    $result.version = $version.Trim()
+                    $result.path = $javaCmd.Source
+                }
+            }
+            'mingw' {
+                # Check for MinGW GCC
+                $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
+                if ($gccCmd) {
+                    $version = (gcc --version | Select-Object -First 1) -replace 'gcc \(.*?\) ', ''
+                    $result.installed = $true
+                    $result.version = $version.Trim()
+                    $result.path = $gccCmd.Source
+                }
+            }
+            'gcc' {
+                # Alias for mingw
+                $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
+                if ($gccCmd) {
+                    $version = (gcc --version | Select-Object -First 1) -replace 'gcc \(.*?\) ', ''
+                    $result.installed = $true
+                    $result.version = $version.Trim()
+                    $result.path = $gccCmd.Source
+                }
+            }
+            'awscli' {
+                # Check for AWS CLI
+                $awsCmd = Get-Command aws -ErrorAction SilentlyContinue
+                if ($awsCmd) {
+                    $version = (aws --version 2>&1) -replace 'aws-cli/', '' -replace ' .*', ''
+                    $result.installed = $true
+                    $result.version = $version.Trim()
+                    $result.path = $awsCmd.Source
+                }
+            }
+            'terraform' {
+                # Check for Terraform
+                $tfCmd = Get-Command terraform -ErrorAction SilentlyContinue
+                if ($tfCmd) {
+                    $version = (terraform version 2>&1 | Select-Object -First 1) -replace 'Terraform v', ''
+                    $result.installed = $true
+                    $result.version = $version.Trim()
+                    $result.path = $tfCmd.Source
+                }
+            }
+            'azurecli' {
+                # Check for Azure CLI
+                $azCmd = Get-Command az -ErrorAction SilentlyContinue
+                if ($azCmd) {
+                    $version = (az version --output json 2>&1 | ConvertFrom-Json).'azure-cli'
+                    $result.installed = $true
+                    $result.version = $version
+                    $result.path = $azCmd.Source
+                }
+            }
         }
     }
     catch {
@@ -155,7 +225,7 @@ Hashtable with download URL and installer file name
 function Get-PrerequisiteDownloadInfo {
     param(
         [Parameter(Mandatory=$true)]
-        [ValidateSet('docker', 'vscode', 'nodejs', 'python', 'git')]
+        [ValidateSet('docker', 'vscode', 'nodejs', 'python', 'git', 'wsl', 'mongodb', 'postgresql', 'jdk', 'mingw', 'awscli', 'terraform', 'azurecli')]
         [string]$ToolName,
         
         [Parameter(Mandatory=$false)]
@@ -222,6 +292,37 @@ function Get-PrerequisiteDownloadInfo {
             $downloadInfo.fileName = 'postgresql-16.1-1-windows-x64.exe'
             $downloadInfo.installArgs = '--mode unattended --unattendedmodeui none --superpassword postgres --servicename PostgreSQL'
         }
+        'jdk' {
+            # Microsoft Build of OpenJDK 21 (latest LTS)
+            $downloadInfo.url = 'https://aka.ms/download-jdk/microsoft-jdk-21-windows-x64.msi'
+            $downloadInfo.fileName = 'microsoft-jdk-21-windows-x64.msi'
+            $downloadInfo.installArgs = '/quiet /norestart ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith,FeatureJavaHome'
+        }
+        'mingw' {
+            # MinGW-w64 (GCC for Windows)
+            # Using WinLibs standalone build
+            $downloadInfo.url = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/13.2.0-16.0.6-11.0.0-msvcrt-r1/winlibs-x86_64-posix-seh-gcc-13.2.0-mingw-w64msvcrt-11.0.0-r1.7z'
+            $downloadInfo.fileName = 'mingw-w64.7z'
+            $downloadInfo.installArgs = $null # 7z archive, needs extraction
+        }
+        'awscli' {
+            # AWS CLI v2
+            $downloadInfo.url = 'https://awscli.amazonaws.com/AWSCLIV2.msi'
+            $downloadInfo.fileName = 'AWSCLIV2.msi'
+            $downloadInfo.installArgs = '/quiet /norestart'
+        }
+        'terraform' {
+            # Terraform latest
+            $downloadInfo.url = 'https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_windows_amd64.zip'
+            $downloadInfo.fileName = 'terraform.zip'
+            $downloadInfo.installArgs = $null # ZIP file, needs extraction
+        }
+        'azurecli' {
+            # Azure CLI latest
+            $downloadInfo.url = 'https://aka.ms/installazurecliwindows'
+            $downloadInfo.fileName = 'AzureCLI.msi'
+            $downloadInfo.installArgs = '/quiet /norestart'
+        }
     }
     
     return $downloadInfo
@@ -267,6 +368,88 @@ function Get-PrerequisiteInstaller {
     catch {
         Emit-Log -StepId "download-prerequisite" -Level "error" -Text "Download failed: $($_.Exception.Message)"
         return $false
+    }
+}
+
+<#
+.SYNOPSIS
+Installs a portable tool by extracting it to a permanent location
+
+.PARAMETER ArchivePath
+Path to the archive file (.zip or .7z)
+
+.PARAMETER ToolName
+Name of the tool being installed
+
+.PARAMETER DestinationRoot
+Root directory for portable tools (default: C:\BuildSmith\Tools)
+
+.RETURNS
+Hashtable with success status and installation path
+#>
+function Install-PortableTool {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ArchivePath,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$ToolName,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$DestinationRoot = "C:\BuildSmith\Tools"
+    )
+    
+    try {
+        Emit-Log -StepId "install-portable" -Level "info" -Text "Installing portable tool: $ToolName..."
+        Emit-Status -StepId "install-$ToolName" -State "running" -Message "Installing $ToolName..."
+        
+        # Create destination directory
+        $toolDir = Join-Path $DestinationRoot $ToolName
+        if (-not (Test-Path $toolDir)) {
+            New-Item -ItemType Directory -Path $toolDir -Force | Out-Null
+        }
+        
+        # Determine archive type and extract
+        if ($ArchivePath -like "*.zip") {
+            # Extract ZIP
+            Add-Type -Assembly System.IO.Compression.FileSystem
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($ArchivePath, $toolDir)
+            Emit-Log -StepId "install-portable" -Level "info" -Text "Extracted ZIP archive"
+        }
+        elseif ($ArchivePath -like "*.7z") {
+            # Extract 7z using PowerShell Expand-Archive won't work, need 7zip
+            # For now, try using tar (available in Windows 10+)
+            # Actually, 7z requires 7-Zip installed. Let's download 7za.exe (standalone)
+            Emit-Log -StepId "install-portable" -Level "warning" -Text "7z archive detected, skipping for now (requires 7-Zip)"
+            # TODO: Add 7-Zip extraction support
+            return @{
+                success = $false
+                path = $null
+                message = "7z extraction not yet supported"
+            }
+        }
+        else {
+            throw "Unsupported archive format: $ArchivePath"
+        }
+        
+        Emit-Log -StepId "install-portable" -Level "success" -Text "$ToolName installed to $toolDir"
+        Emit-Result -StepId "install-$ToolName" -State "success" -Duration 10
+        
+        return @{
+            success = $true
+            path = $toolDir
+            message = "Installed successfully"
+        }
+    }
+    catch {
+        Emit-Log -StepId "install-portable" -Level "error" -Text "Installation error: $($_.Exception.Message)"
+        Emit-Result -StepId "install-$ToolName" -State "failed" -Duration 10
+        
+        return @{
+            success = $false
+            path = $null
+            message = $_.Exception.Message
+        }
     }
 }
 
@@ -502,20 +685,39 @@ function Ensure-Prerequisites {
             $downloadInfo = Get-PrerequisiteDownloadInfo -ToolName $tool
             
             if ($downloadInfo.url) {
-                # Download installer
+                # Download installer/archive
                 $installerPath = Join-Path $tempDir $downloadInfo.fileName
                 
                 $downloaded = Get-PrerequisiteInstaller -DownloadUrl $downloadInfo.url -DestinationPath $installerPath
                 
                 if ($downloaded) {
-                    # Install and WAIT for completion
-                    $installed = Install-Prerequisite -InstallerPath $installerPath -InstallArgs $downloadInfo.installArgs -ToolName $tool
-                    
-                    $results[$tool] = @{
-                        success = $installed
-                        installed = $installed
-                        version = 'newly installed'
-                        action = 'installed'
+                    # Check if it's a portable tool (archive) or regular installer
+                    if ($downloadInfo.installArgs -eq $null -and ($installerPath -like "*.zip" -or $installerPath -like "*.7z")) {
+                        # Portable tool - extract to permanent location
+                        $portableResult = Install-PortableTool -ArchivePath $installerPath -ToolName $tool
+                        
+                        if ($portableResult.success) {
+                            Emit-Log -StepId "check-prerequisites" -Level "warning" -Text "⚠️ PATH UPDATE REQUIRED: Add $($portableResult.path) to PATH"
+                        }
+                        
+                        $results[$tool] = @{
+                            success = $portableResult.success
+                            installed = $portableResult.success
+                            version = 'portable'
+                            action = 'installed-portable'
+                            path = $portableResult.path
+                        }
+                    }
+                    else {
+                        # Regular installer - run with WAIT
+                        $installed = Install-Prerequisite -InstallerPath $installerPath -InstallArgs $downloadInfo.installArgs -ToolName $tool
+                        
+                        $results[$tool] = @{
+                            success = $installed
+                            installed = $installed
+                            version = 'newly installed'
+                            action = 'installed'
+                        }
                     }
                 }
                 else {
@@ -560,6 +762,7 @@ Export-ModuleMember -Function @(
     'Get-PrerequisiteDownloadInfo',
     'Get-PrerequisiteInstaller',
     'Install-Prerequisite',
+    'Install-PortableTool',
     'Install-WSL2',
     'Ensure-Prerequisites'
 )

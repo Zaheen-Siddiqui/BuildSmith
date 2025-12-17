@@ -18,6 +18,7 @@ Import-Module "$PSScriptRoot/modules/db.psm1" -Force
 Import-Module "$PSScriptRoot/modules/env.psm1" -Force
 Import-Module "$PSScriptRoot/modules/encryption.psm1" -Force
 Import-Module "$PSScriptRoot/modules/drivers.psm1" -Force
+Import-Module "$PSScriptRoot/modules/gitconfig.psm1" -Force
 
 $startTime = Get-Date
 
@@ -190,6 +191,20 @@ try {
         
         Emit-Log -StepId "scan-environment" -Level "success" -Text "Found $($pathEntries.Count) PATH entries and $($envVars.Count) environment variables"
         Emit-Status -StepId "scan-environment" -State "complete" -Message "Environment scan complete"
+    }
+    
+    # Capture git configuration
+    Emit-Log -StepId "scan" -Level "info" -Text "Scanning git configuration..."
+    Emit-Status -StepId "scan-git" -State "running" -Message "Scanning git configuration..."
+    
+    $gitConfigPath = Join-Path $bundleDir "gitconfig.json"
+    $gitExportSuccess = Export-GitConfiguration -OutputPath $gitConfigPath
+    
+    if ($gitExportSuccess) {
+        Emit-Log -StepId "scan-git" -Level "success" -Text "Git configuration captured"
+        Emit-Status -StepId "scan-git" -State "complete" -Message "Git scan complete"
+    } else {
+        Emit-Log -StepId "scan-git" -Level "warning" -Text "Git configuration not available"
     }
     
     # Save manifest

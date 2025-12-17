@@ -6,7 +6,7 @@ Import-Module "$PSScriptRoot/modules/prerequisites.psm1" -Force
 
 Write-Host "`n=== Testing Prerequisite Detection ===" -ForegroundColor Cyan
 
-$tools = @('docker', 'code', 'node', 'npm', 'python', 'pip', 'git', 'wsl', 'mongodb', 'postgresql')
+$tools = @('docker', 'code', 'node', 'npm', 'python', 'pip', 'git', 'wsl', 'mongodb', 'postgresql', 'jdk', 'mingw', 'awscli', 'terraform', 'azurecli')
 
 foreach ($tool in $tools) {
     $status = Test-PrerequisiteInstalled -ToolName $tool
@@ -22,7 +22,7 @@ foreach ($tool in $tools) {
 
 Write-Host "`n=== Testing Download URL Generation ===" -ForegroundColor Cyan
 
-$prerequisites = @('docker', 'vscode', 'nodejs', 'python', 'git', 'wsl', 'mongodb', 'postgresql')
+$prerequisites = @('docker', 'vscode', 'nodejs', 'python', 'git', 'wsl', 'mongodb', 'postgresql', 'jdk', 'mingw', 'awscli', 'terraform', 'azurecli')
 
 foreach ($prereq in $prerequisites) {
     $info = Get-PrerequisiteDownloadInfo -ToolName $prereq
