@@ -11,7 +11,9 @@ import { spawn, ChildProcess } from 'node:child_process'
 // │ │ ├── main.js
 // │ │ └── preload.js
 // │
-process.env.DIST = path.join(__dirname, '../dist')
+process.env.DIST = app.isPackaged
+  ? path.join(__dirname, '../dist')  // In production: resources/app.asar/dist-electron/../dist
+  : path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged
   ? process.env.DIST
   : path.join(process.env.DIST, '../public')
@@ -20,6 +22,13 @@ let win: BrowserWindow | null
 let backendProcess: ChildProcess | null = null
 
 function createWindow() {
+  // Debug logging for path resolution
+  console.log('[Main] app.isPackaged:', app.isPackaged)
+  console.log('[Main] __dirname:', __dirname)
+  console.log('[Main] process.resourcesPath:', process.resourcesPath)
+  console.log('[Main] DIST:', process.env.DIST)
+  console.log('[Main] VITE_PUBLIC:', process.env.VITE_PUBLIC)
+  
   win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -45,6 +54,8 @@ function createWindow() {
     win.webContents.openDevTools()
   } else {
     win.loadFile(path.join(process.env.DIST, 'index.html'))
+    // Open dev tools in production to debug loading issues
+    win.webContents.openDevTools()
   }
 }
 
