@@ -1,0 +1,19 @@
+{
+  "name": "@buildsmith/ui",
+  "version": "1.0.0",
+  "description": "BuildSmith - Automated Development Environment Replication",
+  "main": "dist-electron/main.js",
+  "author": "BuildSmith Team",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zaheen-Siddiqui/BuildSmith.git"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "zustand": "^5.0.9"
+  }
+}
