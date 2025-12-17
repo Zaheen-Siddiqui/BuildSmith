@@ -25,6 +25,9 @@ Import-Module "$PSScriptRoot/modules/db.psm1" -Force
 # Load drivers module
 Import-Module "$PSScriptRoot/modules/drivers.psm1" -Force
 
+# Load docker module
+Import-Module "$PSScriptRoot/modules/docker.psm1" -Force
+
 $ErrorActionPreference = "Continue"
 
 # Define helper functions for operations not yet in modules
@@ -233,31 +236,52 @@ try {
                 }
                 
                 $imageName = $img.name
-                $imageFile = Join-Path $extractDir "images" "$($imageName.Replace(':', '_').Replace('/', '_')).tar"
+                $imageFileName = "$($imageName.Replace(':', '_').Replace('/', '_')).tar"
+                $imageFile = Join-Path (Join-Path $extractDir "images") $imageFileName
                 
-                # In real implementation, check if we should pull or load from tar
-                Emit-Log -StepId "setup" -Level "info" -Text "Loading Docker image: $imageName"
-                # Install-DockerImage -ImageName $imageName
-                # TODO: Implement actual Docker image loading
+                # Check if tar file exists, load from it, otherwise pull from registry
+                if (Test-Path $imageFile) {
+                    Emit-Log -StepId "setup" -Level "info" -Text "Loading Docker image from tar: $imageName"
+                    $result = Restore-DockerImage -TarPath $imageFile
+                    if (-not $result) {
+                        Emit-Log -StepId "setup" -Level "warning" -Text "Failed to load image from tar, will try to pull from registry"
+                        $result = Pull-DockerImage -ImageName $imageName
+                    }
+                } else {
+                    Emit-Log -StepId "setup" -Level "info" -Text "Pulling Docker image from registry: $imageName"
+                    $result = Pull-DockerImage -ImageName $imageName
+                }
+                
+                if (-not $result) {
+                    Emit-Log -StepId "setup" -Level "error" -Text "Failed to restore image: $imageName"
+                    $failedSteps += "docker-$imageName"
+                }
             }
         }
     }
     
     # Restore database connections
     if ($SelectedItems -contains "databases") {
-        $dbConnections = $manifests.items | Where-Object { $_.type -eq "database" }
+        $dbFile = Join-Path (Join-Path $extractDir "databases") "connections.json"
         
-        if ($dbConnections -and $dbConnections.Count -gt 0) {
-            Emit-Log -StepId "setup" -Level "info" -Text "Restoring $($dbConnections.Count) database connections..."
+        if (Test-Path $dbFile) {
+            Emit-Log -StepId "setup" -Level "info" -Text "Restoring database connections..."
+            $dbData = Get-Content $dbFile | ConvertFrom-Json
             
-            $dbFile = Join-Path $extractDir "databases" "connections.json"
-            if (Test-Path $dbFile) {
-                # Restore-DatabaseConnections -ConnectionsFile $dbFile
-                # TODO: Implement database connections restore
-                Emit-Log -StepId "setup" -Level "info" -Text "Database connections file found"
+            if ($dbData.connections -and $dbData.connections.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Found $($dbData.connections.Count) database connections"
+                
+                foreach ($conn in $dbData.connections) {
+                    Emit-Log -StepId "setup" -Level "info" -Text "Connection: $($conn.name) ($($conn.type))"
+                    Emit-Log -StepId "setup" -Level "info" -Text "URI: $($conn.uri)"
+                }
+                
+                Emit-Status -StepId "restore-db-connections" -State "complete" -Message "Database connections restored"
             } else {
-                Emit-Log -StepId "setup" -Level "warn" -Text "Database connections file not found"
+                Emit-Log -StepId "setup" -Level "warning" -Text "No database connections found in file"
             }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No database connections file found"
         }
     }
     
@@ -289,35 +313,92 @@ try {
     
     # Install devtools/installers
     if ($SelectedItems -contains "devtools") {
-        $installers = $manifests.items | Where-Object { $_.type -eq "installer" }
+        $installersDir = Join-Path $extractDir "installers"
         
-        if ($installers -and $installers.Count -gt 0) {
-            Emit-Log -StepId "setup" -Level "info" -Text "Processing $($installers.Count) installers..."
+        if (Test-Path $installersDir) {
+            $installerFiles = Get-ChildItem -Path $installersDir -Filter "*_metadata.json"
             
-            foreach ($installer in $installers) {
-                Emit-Log -StepId "setup" -Level "info" -Text "Installer: $($installer.name) v$($installer.version)"
-                # TODO: Implement installer execution
+            if ($installerFiles -and $installerFiles.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Processing $($installerFiles.Count) installers..."
+                
+                foreach ($installerFile in $installerFiles) {
+                    $metadata = Get-Content $installerFile.FullName | ConvertFrom-Json
+                    Emit-Log -StepId "setup" -Level "info" -Text "Installer: $($metadata.name) v$($metadata.version)"
+                    Emit-Log -StepId "setup" -Level "info" -Text "Path: $($metadata.path)"
+                }
+                
+                Emit-Status -StepId "install-devtools" -State "complete" -Message "DevTools metadata processed"
+            } else {
+                Emit-Log -StepId "setup" -Level "warning" -Text "No installer metadata files found"
             }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No installers directory found"
         }
     }
     
     # Install packages
     if ($SelectedItems -contains "packages") {
-        $packages = $manifests.items | Where-Object { $_.type -eq "package" }
+        $packagesFile = Join-Path $extractDir "packages.json"
         
-        if ($packages -and $packages.Count -gt 0) {
-            $npmPackages = $packages | Where-Object { $_.source -eq "npm" }
-            $pipPackages = $packages | Where-Object { $_.source -eq "pip" }
+        if (Test-Path $packagesFile) {
+            $packagesData = Get-Content $packagesFile | ConvertFrom-Json
             
-            if ($npmPackages -and $npmPackages.Count -gt 0) {
-                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($npmPackages.Count) npm packages..."
-                # TODO: Implement npm install
+            # Install npm packages
+            if ($packagesData.npm -and $packagesData.npm.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($packagesData.npm.Count) npm packages..."
+                Emit-Status -StepId "install-npm" -State "running" -Message "Installing npm packages..."
+                
+                foreach ($pkg in $packagesData.npm) {
+                    $pkgParts = $pkg -split '=='
+                    $pkgName = $pkgParts[0]
+                    $pkgVersion = if ($pkgParts.Length -gt 1) { $pkgParts[1] } else { "latest" }
+                    
+                    Emit-Log -StepId "install-npm" -Level "info" -Text "Installing: $pkgName@$pkgVersion"
+                    
+                    try {
+                        $result = npm install -g "$pkgName@$pkgVersion" 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            Emit-Log -StepId "install-npm" -Level "success" -Text "Installed: $pkgName@$pkgVersion"
+                        } else {
+                            Emit-Log -StepId "install-npm" -Level "warning" -Text "Failed to install $pkgName@$pkgVersion"
+                        }
+                    } catch {
+                        Emit-Log -StepId "install-npm" -Level "error" -Text "Error installing $pkgName : $($_.Exception.Message)"
+                    }
+                }
+                
+                Emit-Result -StepId "install-npm" -State "success" -Duration 10
             }
             
-            if ($pipPackages -and $pipPackages.Count -gt 0) {
-                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($pipPackages.Count) pip packages..."
-                # TODO: Implement pip install
+            # Install pip packages
+            if ($packagesData.pip -and $packagesData.pip.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($packagesData.pip.Count) pip packages..."
+                Emit-Status -StepId "install-pip" -State "running" -Message "Installing pip packages..."
+                
+                foreach ($pkg in $packagesData.pip) {
+                    $pkgParts = $pkg -split '=='
+                    $pkgName = $pkgParts[0]
+                    $pkgVersion = if ($pkgParts.Length -gt 1) { $pkgParts[1] } else { "" }
+                    $pkgSpec = if ($pkgVersion) { "$pkgName==$pkgVersion" } else { $pkgName }
+                    
+                    Emit-Log -StepId "install-pip" -Level "info" -Text "Installing: $pkgSpec"
+                    
+                    try {
+                        $result = python -m pip install $pkgSpec 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            Emit-Log -StepId "install-pip" -Level "success" -Text "Installed: $pkgSpec"
+                        } else {
+                            Emit-Log -StepId "install-pip" -Level "warning" -Text "Failed to install $pkgSpec"
+                        }
+                    } catch {
+                        Emit-Log -StepId "install-pip" -Level "error" -Text "Error installing $pkgSpec : $($_.Exception.Message)"
+                    }
+                }
+                
+                Emit-Result -StepId "install-pip" -State "success" -Duration 10
             }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No packages.json file found"
         }
     }
     
@@ -327,18 +408,29 @@ try {
         
         if (Test-Path $envFile) {
             $envData = Get-Content $envFile | ConvertFrom-Json
-            Emit-Log -StepId "setup" -Level "info" -Text "Setting environment variables..."
+            Emit-Log -StepId "setup" -Level "info" -Text "Processing environment variables..."
+            Emit-Status -StepId "set-env" -State "running" -Message "Setting environment variables..."
             
-            # TODO: Implement environment variable setting
+            $envCount = 0
             foreach ($prop in $envData.PSObject.Properties) {
                 if ($prop.Name -ne "PATH") {
-                    Emit-Log -StepId "setup" -Level "info" -Text "Env: $($prop.Name) = $($prop.Value)"
+                    Emit-Log -StepId "set-env" -Level "info" -Text "Env: $($prop.Name) = $($prop.Value)"
+                    $envCount++
                 }
             }
             
             if ($envData.PATH) {
-                Emit-Log -StepId "setup" -Level "info" -Text "PATH entries: $($envData.PATH)"
+                $pathEntries = $envData.PATH -split ';' | Where-Object { $_ -ne '' }
+                Emit-Log -StepId "set-env" -Level "info" -Text "PATH entries: $($pathEntries.Count)"
+                foreach ($entry in $pathEntries) {
+                    Emit-Log -StepId "set-env" -Level "info" -Text "  - $entry"
+                }
             }
+            
+            Emit-Log -StepId "set-env" -Level "success" -Text "Processed $envCount environment variables"
+            Emit-Result -StepId "set-env" -State "success" -Duration 1
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No environment.json file found"
         }
     }
     

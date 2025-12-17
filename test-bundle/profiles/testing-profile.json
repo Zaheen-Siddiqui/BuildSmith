@@ -6,6 +6,12 @@
         "id": "eamodio.gitlens"
       },
       "version": "14.5.0"
+    },
+    {
+      "identifier": {
+        "id": "bradlc.vscode-tailwindcss"
+      },
+      "version": "0.10.5"
     }
   ],
   "settings": {
