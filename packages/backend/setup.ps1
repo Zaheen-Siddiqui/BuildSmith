@@ -28,6 +28,9 @@ Import-Module "$PSScriptRoot/modules/drivers.psm1" -Force
 # Load docker module
 Import-Module "$PSScriptRoot/modules/docker.psm1" -Force
 
+# Load prerequisites module
+Import-Module "$PSScriptRoot/modules/prerequisites.psm1" -Force
+
 $ErrorActionPreference = "Continue"
 
 # Define helper functions for operations not yet in modules
@@ -95,6 +98,57 @@ try {
     Emit-Log -StepId "setup" -Level "info" -Text "Starting setup from bundle: $BundlePath"
     Emit-Log -StepId "setup" -Level "debug" -Text "Selected items: $($SelectedItems -join ', ')"
     Emit-Log -StepId "setup" -Level "debug" -Text "Selected items count: $($SelectedItems.Count)"
+    
+    # ========================================
+    # STEP 1: Check and install prerequisites
+    # ========================================
+    Emit-Log -StepId "setup" -Level "info" -Text "Step 1: Checking prerequisites..."
+    
+    # Determine which tools are required based on selected items
+    $requiredTools = @()
+    if ($SelectedItems -contains "vscode") { $requiredTools += "vscode" }
+    if ($SelectedItems -contains "docker") { $requiredTools += "docker" }
+    if ($SelectedItems -contains "databases") { $requiredTools += "mongodb" }  # Auto-install MongoDB if databases selected
+    if ($SelectedItems -contains "packages") {
+        $requiredTools += "nodejs"  # npm comes with Node.js
+        $requiredTools += "python"  # pip comes with Python
+    }
+    
+    if ($requiredTools.Count -gt 0) {
+        Emit-Log -StepId "setup" -Level "info" -Text "Required tools: $($requiredTools -join ', ')"
+        
+        $prereqResults = Ensure-Prerequisites -RequiredTools $requiredTools
+        
+        # Check if any installations failed
+        $failedPrereqs = $prereqResults.GetEnumerator() | Where-Object { $_.Key -ne '_rebootRequired' -and -not $_.Value.success }
+        if ($failedPrereqs.Count -gt 0) {
+            $failedNames = $failedPrereqs | ForEach-Object { $_.Key }
+            Emit-Log -StepId "setup" -Level "error" -Text "Failed to install prerequisites: $($failedNames -join ', ')"
+            Emit-Log -StepId "setup" -Level "error" -Text "Please install these tools manually and try again"
+            throw "Missing required prerequisites: $($failedNames -join ', ')"
+        }
+        
+        # Check if reboot is required
+        if ($prereqResults['_rebootRequired']) {
+            Emit-Log -StepId "setup" -Level "warning" -Text "⚠️⚠️⚠️ SYSTEM REBOOT REQUIRED ⚠️⚠️⚠️"
+            Emit-Log -StepId "setup" -Level "warning" -Text "WSL2 was installed and requires a system restart"
+            Emit-Log -StepId "setup" -Level "warning" -Text "Please restart your computer and run this setup again"
+            Emit-Log -StepId "setup" -Level "info" -Text "After reboot, all prerequisites will be ready and setup will continue"
+            
+            $duration = ((Get-Date) - $startTime).TotalSeconds
+            Emit-Complete -Outcome "reboot-required" -Duration $duration
+            return
+        }
+        
+        Emit-Log -StepId "setup" -Level "success" -Text "All prerequisites are ready"
+    } else {
+        Emit-Log -StepId "setup" -Level "info" -Text "No prerequisite tools required for selected items"
+    }
+    
+    # ========================================
+    # STEP 2: Extract and decrypt bundle
+    # ========================================
+    Emit-Log -StepId "setup" -Level "info" -Text "Step 2: Processing bundle file..."
     
     # Check if bundle is encrypted
     $bundleToExtract = $BundlePath
