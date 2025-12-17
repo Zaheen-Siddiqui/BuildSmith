@@ -127,8 +127,10 @@ function setupIPCHandlers() {
   // Handle reading bundle file
   ipcMain.handle('fs:readBundle', async (event, filePath: string) => {
     try {
+      console.log('[Main] 📂 Reading bundle from:', filePath)
       const fs = await import('node:fs/promises')
       const buffer = await fs.readFile(filePath)
+      console.log('[Main] ✅ Bundle read successfully, size:', buffer.length, 'bytes')
       // Convert Buffer to ArrayBuffer
       return { 
         success: true, 
@@ -136,7 +138,7 @@ function setupIPCHandlers() {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      console.error('Error reading bundle file:', error)
+      console.error('[Main] ❌ Error reading bundle file:', error)
       return { success: false, error: errorMessage }
     }
   })

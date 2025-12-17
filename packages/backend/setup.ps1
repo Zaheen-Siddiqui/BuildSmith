@@ -25,6 +25,18 @@ Import-Module "$PSScriptRoot/modules/db.psm1" -Force
 # Load drivers module
 Import-Module "$PSScriptRoot/modules/drivers.psm1" -Force
 
+# Load docker module
+Import-Module "$PSScriptRoot/modules/docker.psm1" -Force
+
+# Load prerequisites module
+Import-Module "$PSScriptRoot/modules/prerequisites.psm1" -Force
+
+# Load environment module
+Import-Module "$PSScriptRoot/modules/environment.psm1" -Force
+
+# Load git config module
+Import-Module "$PSScriptRoot/modules/gitconfig.psm1" -Force
+
 $ErrorActionPreference = "Continue"
 
 # Define helper functions for operations not yet in modules
@@ -93,6 +105,57 @@ try {
     Emit-Log -StepId "setup" -Level "debug" -Text "Selected items: $($SelectedItems -join ', ')"
     Emit-Log -StepId "setup" -Level "debug" -Text "Selected items count: $($SelectedItems.Count)"
     
+    # ========================================
+    # STEP 1: Check and install prerequisites
+    # ========================================
+    Emit-Log -StepId "setup" -Level "info" -Text "Step 1: Checking prerequisites..."
+    
+    # Determine which tools are required based on selected items
+    $requiredTools = @()
+    if ($SelectedItems -contains "vscode") { $requiredTools += "vscode" }
+    if ($SelectedItems -contains "docker") { $requiredTools += "docker" }
+    if ($SelectedItems -contains "databases") { $requiredTools += "mongodb" }  # Auto-install MongoDB if databases selected
+    if ($SelectedItems -contains "packages") {
+        $requiredTools += "nodejs"  # npm comes with Node.js
+        $requiredTools += "python"  # pip comes with Python
+    }
+    
+    if ($requiredTools.Count -gt 0) {
+        Emit-Log -StepId "setup" -Level "info" -Text "Required tools: $($requiredTools -join ', ')"
+        
+        $prereqResults = Ensure-Prerequisites -RequiredTools $requiredTools
+        
+        # Check if any installations failed
+        $failedPrereqs = $prereqResults.GetEnumerator() | Where-Object { $_.Key -ne '_rebootRequired' -and -not $_.Value.success }
+        if ($failedPrereqs.Count -gt 0) {
+            $failedNames = $failedPrereqs | ForEach-Object { $_.Key }
+            Emit-Log -StepId "setup" -Level "error" -Text "Failed to install prerequisites: $($failedNames -join ', ')"
+            Emit-Log -StepId "setup" -Level "error" -Text "Please install these tools manually and try again"
+            throw "Missing required prerequisites: $($failedNames -join ', ')"
+        }
+        
+        # Check if reboot is required
+        if ($prereqResults['_rebootRequired']) {
+            Emit-Log -StepId "setup" -Level "warning" -Text "⚠️⚠️⚠️ SYSTEM REBOOT REQUIRED ⚠️⚠️⚠️"
+            Emit-Log -StepId "setup" -Level "warning" -Text "WSL2 was installed and requires a system restart"
+            Emit-Log -StepId "setup" -Level "warning" -Text "Please restart your computer and run this setup again"
+            Emit-Log -StepId "setup" -Level "info" -Text "After reboot, all prerequisites will be ready and setup will continue"
+            
+            $duration = ((Get-Date) - $startTime).TotalSeconds
+            Emit-Complete -Outcome "reboot-required" -Duration $duration
+            return
+        }
+        
+        Emit-Log -StepId "setup" -Level "success" -Text "All prerequisites are ready"
+    } else {
+        Emit-Log -StepId "setup" -Level "info" -Text "No prerequisite tools required for selected items"
+    }
+    
+    # ========================================
+    # STEP 2: Extract and decrypt bundle
+    # ========================================
+    Emit-Log -StepId "setup" -Level "info" -Text "Step 2: Processing bundle file..."
+    
     # Check if bundle is encrypted
     $bundleToExtract = $BundlePath
     $isEncrypted = $BundlePath -match '\.encrypted$'
@@ -127,6 +190,17 @@ try {
     # Clean up decrypted temp file if we decrypted
     if ($isEncrypted -and $bundleToExtract -ne $BundlePath) {
         Remove-Item $bundleToExtract -Force -ErrorAction SilentlyContinue
+    }
+    
+    # Check if files are in a subdirectory (e.g., "test-bundle/")
+    $bundleFile = Join-Path $extractDir "bundle.json"
+    if (-not (Test-Path $bundleFile)) {
+        # Look for subdirectory with bundle.json
+        $subDirs = Get-ChildItem -Path $extractDir -Directory
+        if ($subDirs.Count -eq 1) {
+            $extractDir = $subDirs[0].FullName
+            Emit-Log -StepId "extract-bundle" -Level "info" -Text "Detected nested bundle structure: $($subDirs[0].Name)"
+        }
     }
     
     Emit-Result -StepId "extract-bundle" -State "success" -Duration 2
@@ -233,31 +307,52 @@ try {
                 }
                 
                 $imageName = $img.name
-                $imageFile = Join-Path $extractDir "images" "$($imageName.Replace(':', '_').Replace('/', '_')).tar"
+                $imageFileName = "$($imageName.Replace(':', '_').Replace('/', '_')).tar"
+                $imageFile = Join-Path (Join-Path $extractDir "images") $imageFileName
                 
-                # In real implementation, check if we should pull or load from tar
-                Emit-Log -StepId "setup" -Level "info" -Text "Loading Docker image: $imageName"
-                # Install-DockerImage -ImageName $imageName
-                # TODO: Implement actual Docker image loading
+                # Check if tar file exists, load from it, otherwise pull from registry
+                if (Test-Path $imageFile) {
+                    Emit-Log -StepId "setup" -Level "info" -Text "Loading Docker image from tar: $imageName"
+                    $result = Restore-DockerImage -TarPath $imageFile
+                    if (-not $result) {
+                        Emit-Log -StepId "setup" -Level "warning" -Text "Failed to load image from tar, will try to pull from registry"
+                        $result = Pull-DockerImage -ImageName $imageName
+                    }
+                } else {
+                    Emit-Log -StepId "setup" -Level "info" -Text "Pulling Docker image from registry: $imageName"
+                    $result = Pull-DockerImage -ImageName $imageName
+                }
+                
+                if (-not $result) {
+                    Emit-Log -StepId "setup" -Level "error" -Text "Failed to restore image: $imageName"
+                    $failedSteps += "docker-$imageName"
+                }
             }
         }
     }
     
     # Restore database connections
     if ($SelectedItems -contains "databases") {
-        $dbConnections = $manifests.items | Where-Object { $_.type -eq "database" }
+        $dbFile = Join-Path (Join-Path $extractDir "databases") "connections.json"
         
-        if ($dbConnections -and $dbConnections.Count -gt 0) {
-            Emit-Log -StepId "setup" -Level "info" -Text "Restoring $($dbConnections.Count) database connections..."
+        if (Test-Path $dbFile) {
+            Emit-Log -StepId "setup" -Level "info" -Text "Restoring database connections..."
+            $dbData = Get-Content $dbFile | ConvertFrom-Json
             
-            $dbFile = Join-Path $extractDir "databases" "connections.json"
-            if (Test-Path $dbFile) {
-                # Restore-DatabaseConnections -ConnectionsFile $dbFile
-                # TODO: Implement database connections restore
-                Emit-Log -StepId "setup" -Level "info" -Text "Database connections file found"
+            if ($dbData.connections -and $dbData.connections.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Found $($dbData.connections.Count) database connections"
+                
+                foreach ($conn in $dbData.connections) {
+                    Emit-Log -StepId "setup" -Level "info" -Text "Connection: $($conn.name) ($($conn.type))"
+                    Emit-Log -StepId "setup" -Level "info" -Text "URI: $($conn.uri)"
+                }
+                
+                Emit-Status -StepId "restore-db-connections" -State "complete" -Message "Database connections restored"
             } else {
-                Emit-Log -StepId "setup" -Level "warn" -Text "Database connections file not found"
+                Emit-Log -StepId "setup" -Level "warning" -Text "No database connections found in file"
             }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No database connections file found"
         }
     }
     
@@ -289,57 +384,139 @@ try {
     
     # Install devtools/installers
     if ($SelectedItems -contains "devtools") {
-        $installers = $manifests.items | Where-Object { $_.type -eq "installer" }
+        $installersDir = Join-Path $extractDir "installers"
         
-        if ($installers -and $installers.Count -gt 0) {
-            Emit-Log -StepId "setup" -Level "info" -Text "Processing $($installers.Count) installers..."
+        if (Test-Path $installersDir) {
+            $installerFiles = Get-ChildItem -Path $installersDir -Filter "*_metadata.json"
             
-            foreach ($installer in $installers) {
-                Emit-Log -StepId "setup" -Level "info" -Text "Installer: $($installer.name) v$($installer.version)"
-                # TODO: Implement installer execution
+            if ($installerFiles -and $installerFiles.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Processing $($installerFiles.Count) installers..."
+                
+                foreach ($installerFile in $installerFiles) {
+                    $metadata = Get-Content $installerFile.FullName | ConvertFrom-Json
+                    Emit-Log -StepId "setup" -Level "info" -Text "Installer: $($metadata.name) v$($metadata.version)"
+                    Emit-Log -StepId "setup" -Level "info" -Text "Path: $($metadata.path)"
+                }
+                
+                Emit-Status -StepId "install-devtools" -State "complete" -Message "DevTools metadata processed"
+            } else {
+                Emit-Log -StepId "setup" -Level "warning" -Text "No installer metadata files found"
             }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No installers directory found"
         }
     }
     
     # Install packages
     if ($SelectedItems -contains "packages") {
-        $packages = $manifests.items | Where-Object { $_.type -eq "package" }
+        $packagesFile = Join-Path $extractDir "packages.json"
         
-        if ($packages -and $packages.Count -gt 0) {
-            $npmPackages = $packages | Where-Object { $_.source -eq "npm" }
-            $pipPackages = $packages | Where-Object { $_.source -eq "pip" }
+        if (Test-Path $packagesFile) {
+            $packagesData = Get-Content $packagesFile | ConvertFrom-Json
             
-            if ($npmPackages -and $npmPackages.Count -gt 0) {
-                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($npmPackages.Count) npm packages..."
-                # TODO: Implement npm install
+            # Install npm packages
+            if ($packagesData.npm -and $packagesData.npm.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($packagesData.npm.Count) npm packages..."
+                Emit-Status -StepId "install-npm" -State "running" -Message "Installing npm packages..."
+                
+                foreach ($pkg in $packagesData.npm) {
+                    $pkgParts = $pkg -split '=='
+                    $pkgName = $pkgParts[0]
+                    $pkgVersion = if ($pkgParts.Length -gt 1) { $pkgParts[1] } else { "latest" }
+                    
+                    Emit-Log -StepId "install-npm" -Level "info" -Text "Installing: $pkgName@$pkgVersion"
+                    
+                    try {
+                        $result = npm install -g "$pkgName@$pkgVersion" 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            Emit-Log -StepId "install-npm" -Level "success" -Text "Installed: $pkgName@$pkgVersion"
+                        } else {
+                            Emit-Log -StepId "install-npm" -Level "warning" -Text "Failed to install $pkgName@$pkgVersion"
+                        }
+                    } catch {
+                        Emit-Log -StepId "install-npm" -Level "error" -Text "Error installing $pkgName : $($_.Exception.Message)"
+                    }
+                }
+                
+                Emit-Result -StepId "install-npm" -State "success" -Duration 10
             }
             
-            if ($pipPackages -and $pipPackages.Count -gt 0) {
-                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($pipPackages.Count) pip packages..."
-                # TODO: Implement pip install
+            # Install pip packages
+            if ($packagesData.pip -and $packagesData.pip.Count -gt 0) {
+                Emit-Log -StepId "setup" -Level "info" -Text "Installing $($packagesData.pip.Count) pip packages..."
+                Emit-Status -StepId "install-pip" -State "running" -Message "Installing pip packages..."
+                
+                foreach ($pkg in $packagesData.pip) {
+                    $pkgParts = $pkg -split '=='
+                    $pkgName = $pkgParts[0]
+                    $pkgVersion = if ($pkgParts.Length -gt 1) { $pkgParts[1] } else { "" }
+                    $pkgSpec = if ($pkgVersion) { "$pkgName==$pkgVersion" } else { $pkgName }
+                    
+                    Emit-Log -StepId "install-pip" -Level "info" -Text "Installing: $pkgSpec"
+                    
+                    try {
+                        $result = python -m pip install $pkgSpec 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            Emit-Log -StepId "install-pip" -Level "success" -Text "Installed: $pkgSpec"
+                        } else {
+                            Emit-Log -StepId "install-pip" -Level "warning" -Text "Failed to install $pkgSpec"
+                        }
+                    } catch {
+                        Emit-Log -StepId "install-pip" -Level "error" -Text "Error installing $pkgSpec : $($_.Exception.Message)"
+                    }
+                }
+                
+                Emit-Result -StepId "install-pip" -State "success" -Duration 10
             }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No packages.json file found"
         }
     }
     
-    # Set environment variables
+    # Set environment variables and apply PATH
     if ($SelectedItems -contains "environment") {
         $envFile = Join-Path $extractDir "environment.json"
         
         if (Test-Path $envFile) {
             $envData = Get-Content $envFile | ConvertFrom-Json
-            Emit-Log -StepId "setup" -Level "info" -Text "Setting environment variables..."
+            Emit-Log -StepId "setup" -Level "info" -Text "Applying environment variables and PATH..."
             
-            # TODO: Implement environment variable setting
-            foreach ($prop in $envData.PSObject.Properties) {
-                if ($prop.Name -ne "PATH") {
-                    Emit-Log -StepId "setup" -Level "info" -Text "Env: $($prop.Name) = $($prop.Value)"
-                }
-            }
+            # Use environment module to actually apply settings
+            $envResult = Set-EnvironmentFromData -EnvironmentData $envData -Scope 'User'
             
-            if ($envData.PATH) {
-                Emit-Log -StepId "setup" -Level "info" -Text "PATH entries: $($envData.PATH)"
+            if ($envResult.success) {
+                Emit-Log -StepId "set-env" -Level "success" -Text "Applied $($envResult.variablesSet) variables and $($envResult.pathEntriesAdded) PATH entries"
+            } else {
+                Emit-Log -StepId "set-env" -Level "error" -Text "Some environment settings failed"
+                $failedSteps += "set-environment"
             }
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "No environment.json file found"
         }
+    }
+    
+    # Apply git configuration
+    $gitConfigFile = Join-Path $extractDir "gitconfig.json"
+    if (Test-Path $gitConfigFile) {
+        Emit-Log -StepId "setup" -Level "info" -Text "Applying git configuration..."
+        
+        $gitConfigData = Get-Content $gitConfigFile | ConvertFrom-Json
+        $gitConfigHash = @{}
+        
+        # Convert PSObject to hashtable
+        foreach ($prop in $gitConfigData.PSObject.Properties) {
+            $gitConfigHash[$prop.Name] = $prop.Value
+        }
+        
+        $gitResult = Set-GitConfiguration -ConfigData $gitConfigHash
+        
+        if ($gitResult.success) {
+            Emit-Log -StepId "setup" -Level "success" -Text "Applied $($gitResult.applied) git config settings"
+        } else {
+            Emit-Log -StepId "setup" -Level "warning" -Text "Some git config settings failed"
+        }
+    } else {
+        Emit-Log -StepId "setup" -Level "info" -Text "No git configuration found in bundle"
     }
     
     <# Legacy drivers code
