@@ -4,7 +4,7 @@ TESTING.md
 CurrentStatus.md
 # Dependencies
 node_modules/
-
+Result
 # Build outputs
 dist/
 dist-electron/
